@@ -46,11 +46,14 @@
         var that = this;
         this.deviceHive.startNotificationPolling(this.device.id, timestamp, function(notification) {
             that.updateTimestamp(notification.timestamp);
-            if (notification.notification == "equipment" && notification.parameters.equipment == "LED") {
-                that.updateLedState(notification.parameters.state); 
+            if (notification.notification == "equipment") {
+                if (notification.parameters.equipment == "LED") that.updateLedState(notification.parameters.state); 
+                if (notification.parameters.equipment == "temp") that.updateTemperature(notification.parameters.temperature);
             }
-            else if (notification.notification == "equipment" && notification.parameters.equipment == "temp") {
-                that.updateTemperature(notification.parameters.temperature); 
+            else if (notification.notification == "$device-update") {
+                if (notification.parameters.status) that.device.status = notification.parameters.status;
+                if (notification.parameters.name) that.device.name = notification.parameters.name;
+                that.updateDeviceInfo(that.device);
             }
         }, that.handleError);
     },

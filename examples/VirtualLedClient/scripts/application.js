@@ -23,12 +23,16 @@
             .done(function (data) {
                 var lastTimestamp = null;
                 jQuery.each(data, function (index, equipment) {
-                    if (equipment.id == "LED") {
+                    if (!lastTimestamp || equipment.timestamp > lastTimestamp) {
                         lastTimestamp = equipment.timestamp;
-                        that.updateTimestamp(equipment.timestamp);
+                    }
+                    if (equipment.id == "LED") {
                         that.updateLedState(equipment.parameters.state);
                     }
                 });
+                if (lastTimestamp) {
+                    that.updateTimestamp(lastTimestamp);
+                }
                 that.pollNotifications(lastTimestamp);
             })
             .fail(that.handleError);
@@ -38,9 +42,14 @@
     pollNotifications: function (timestamp) {
         var that = this;
         this.deviceHive.startNotificationPolling(this.device.id, timestamp, function(notification) {
-            if (notification.notification == "equipment" && notification.parameters.equipment == "LED") {
-                that.updateTimestamp(notification.timestamp);
-                that.updateLedState(notification.parameters.state); 
+            that.updateTimestamp(notification.timestamp);
+            if (notification.notification == "equipment") {
+                if (notification.parameters.equipment == "LED") that.updateLedState(notification.parameters.state); 
+            }
+            else if (notification.notification == "$device-update") {
+                if (notification.parameters.status) that.device.status = notification.parameters.status;
+                if (notification.parameters.name) that.device.name = notification.parameters.name;
+                that.updateDeviceInfo(that.device);
             }
         }, that.handleError);
     },
