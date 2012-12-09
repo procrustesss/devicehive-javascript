@@ -93,7 +93,7 @@ DeviceHive.prototype = {
 
     // sends new command to the device.
     sendCommand: function(deviceId, command, parameters) {
-        return this.query("POST", "/device/" + deviceId + "/command", { command: command, parameters: JSON.stringify(parameters) });
+        return this.query("POST", "/device/" + deviceId + "/command", { command: command, parameters: parameters });
     },
 
     // private methods
