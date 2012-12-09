@@ -96,6 +96,12 @@ DeviceHive.prototype = {
         return this.query("POST", "/device/" + deviceId + "/command", { command: command, parameters: parameters });
     },
 
+    // waits for a command to be executed by long-polling the server
+    // if the command is not executed, the call is terminated by a server and the empty result is returned
+    waitCommandResult: function(deviceId, commandId) {
+        return this.query("GET", "/device/" + deviceId + "/command/" + commandId + "/poll");
+    },
+
     // private methods
     query: function(method, url, params) {
         var that = this;
