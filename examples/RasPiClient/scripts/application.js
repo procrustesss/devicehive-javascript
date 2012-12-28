@@ -10,22 +10,19 @@
             .done(function (device) {
                 that.device = device;
                 that.updateDeviceInfo(device);
+                that.getLedState(device);
+                that.subscribeNotifications(device);
                 that.bindLedControl();
-                that.getLedState();
             })
             .fail(that.handleError);
     },
-    
+
     // gets current led state
-    getLedState: function () {
+    getLedState: function (device) {
         var that = this;
-        this.deviceHive.getEquipmentState(this.device.id)
+        this.deviceHive.getEquipmentState(device.id)
             .done(function (data) {
-                var lastTimestamp = null;
                 jQuery.each(data, function (index, equipment) {
-                    if (!lastTimestamp || equipment.timestamp > lastTimestamp) {
-                        lastTimestamp = equipment.timestamp;
-                    }
                     if (equipment.id == "LED") {
                         that.updateLedState(equipment.parameters.state);
                     }
@@ -33,30 +30,39 @@
                         that.updateTemperature(equipment.parameters.temperature);
                     }
                 });
-                if (lastTimestamp) {
-                    that.updateTimestamp(lastTimestamp);
-                }
-                that.pollNotifications(lastTimestamp);
             })
             .fail(that.handleError);
     },
 
-    // start polling device notification
-    pollNotifications: function (timestamp) {
+    // subscribes to device notifications
+    subscribeNotifications: function (device) {
         var that = this;
-        this.deviceHive.startNotificationPolling(this.device.id, timestamp, function(notification) {
-            that.updateTimestamp(notification.timestamp);
-            if (notification.notification == "equipment" && notification.parameters.equipment == "LED") {
-                that.updateLedState(notification.parameters.state); 
-            }
-            else if (notification.notification == "equipment" && notification.parameters.equipment == "temp") {
-                that.updateTemperature(notification.parameters.temperature); 
-            }
-        }, that.handleError);
+        this.deviceHive.channelStateChanged(function (data) {
+            that.updateChannelState(data.newState);
+        });
+        this.deviceHive.notification(function () {
+            that.handleNotification.apply(that, arguments);
+        });
+        this.deviceHive.openChannel()
+            .done(function() { that.deviceHive.subscribe(device.id); })
+            .fail(that.handleError);
+    },
+
+    // handles incoming notification
+    handleNotification: function (deviceId, notification) {
+        if (notification.notification == "equipment") {
+            if (notification.parameters.equipment == "LED") this.updateLedState(notification.parameters.state); 
+            if (notification.parameters.equipment == "temp") this.updateTemperature(notification.parameters.temperature);
+        }
+        else if (notification.notification == "$device-update") {
+            if (notification.parameters.status) this.device.status = notification.parameters.status;
+            if (notification.parameters.name) this.device.name = notification.parameters.name;
+            this.updateDeviceInfo(this.device);
+        }
     },
 
     // bind LED On/Off button click handler
-    bindLedControl: function() {
+    bindLedControl: function () {
         var that = this;
         $(".send").click(function() {
             var state = $(this).is(".on") ? "1" : "0";
@@ -71,10 +77,14 @@
         $(".device-status").text(device.status);
     },
 
-    // updates last notification timestamp on the page
-    updateTimestamp: function (timestamp) {
-        timestamp = this.deviceHive.parseDate(timestamp);
-        $(".device-last-update").text(this.formatDate(timestamp));
+    // updates channel state
+    updateChannelState: function (state) {
+        if (state === DeviceHive.channelState.connected)
+            $(".channel-state").text("Connected");
+        if (state === DeviceHive.channelState.connecting)
+            $(".channel-state").text("Connecting");
+        if (state === DeviceHive.channelState.disconnected)
+            $(".channel-state").text("Disconnected");
     },
 
     // updates LED state on the page
@@ -94,7 +104,7 @@
         return (date.getMonth() + 1) + "/" + date.getDate() + "/" + date.getFullYear() + " " + pad(date.getHours()) + ":" + pad(date.getMinutes()) + ":" + pad(date.getSeconds());
     },
 
-    handleError: function (xhr) {
-        alert("DeviceHive service returned an error: " + xhr.responseText);
+    handleError: function (e, xhr) {
+        alert(e);
     }
 }
