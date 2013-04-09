@@ -68,7 +68,7 @@ var
     },
 
     ajax = function (self, method, url, params) {
-        return $.ajax({
+        var settings = {
             type: method,
             url: self.serviceUrl + url,
             dataType: "json",
@@ -78,7 +78,12 @@ var
             beforeSend: function (jqXHR, settings) {
                 jqXHR.setRequestHeader("Authorization", "Basic " + encodeBase64(self.login + ":" + self.password))
             }
-        });
+        };
+        if (params && (method == "POST" || method == "PUT")) {
+            settings.contentType = "application/json";
+            settings.data = JSON.stringify(params);
+        }
+        return $.ajax(settings);
     },
 
     query = function (self, method, url, params) { // ajax then parse error response
@@ -418,8 +423,9 @@ deviceHive.channels.webSocket.prototype = {
         });
         request.result = function (callback) {
             $(request).bind("onResult", function (e, command) {
-                callback.call(self.hive, command);
+                callback.call(self.hive, command.command);
             });
+            return request;
         };
         return request;
     },
@@ -505,6 +511,7 @@ deviceHive.channels.longPolling.prototype = {
                     });
                 }
             });
+            return request;
         };
         return request;
     },
