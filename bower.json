@@ -1,0 +1,40 @@
+{
+    "name": "devicehive",
+    "version": "1.3.0",
+    "authors": [
+        "Artem Sorokin <sorokinjef@gmail.com>"
+    ],
+    "description": "IoT and M2M communication platform framework",
+    "main": [
+        "build/browser/devicehive.client.js",
+        "build/browser/devicehive.device.js"
+    ],
+    "ignore": [
+        "**/.*",
+        "examples",
+        "*.md",
+        "gulpfile.js",
+        "package.json"
+    ],
+    "moduleType": [
+        "amd",
+        "globals",
+        "node"
+    ],
+    "keywords": [
+        "DeviceHive",
+        "cloud",
+        "api",
+        "client",
+        "device",
+        "embedded",
+        "communication",
+        "iot",
+        "m2m"
+    ],
+    "dependencies": {
+        "jquery": "^1.5.0"
+    },
+    "license": "MIT",
+    "homepage": "devicehive.com"
+}
