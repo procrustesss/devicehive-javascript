@@ -1766,7 +1766,11 @@ var WebSocketDeviceChannel = (function () {
                 return cb(null);
             }
 
-            this._wsApi.commandSubscribe({
+            if(this.compatibilityMode && this.subscriptions.length > 1){
+                return cb(null);
+            }
+
+            this._wsApi.commandSubscribe(this.compatibilityMode ? null : {
                 deviceGuids: subscription.deviceIds,
                 names: subscription.names
             }, function (err, res) {
@@ -1867,6 +1871,11 @@ var DHDevice = (function () {
             throw new Error('Conflicting device keys on device registration');
 
         device.key = device.key || this.auth.deviceKey;
+
+        if (!device.key) {
+            throw new Error('Device key was not provided during the DHDevice object creation and therefore must be specified in the parameters')
+        }
+
         return this._executeApi(restApi.registerDevice, [device, cb]);
     };
 

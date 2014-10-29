@@ -68,7 +68,11 @@ var WebSocketDeviceChannel = (function () {
                 return cb(null);
             }
 
-            this._wsApi.commandSubscribe({
+            if(this.compatibilityMode && this.subscriptions.length > 1){
+                return cb(null);
+            }
+
+            this._wsApi.commandSubscribe(this.compatibilityMode ? null : {
                 deviceGuids: subscription.deviceIds,
                 names: subscription.names
             }, function (err, res) {
