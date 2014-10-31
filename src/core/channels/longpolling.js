@@ -70,7 +70,12 @@ var LongPollingChannel = (function () {
                     });
 
                     utils.forEach(relevantSubscriptions, function () {
-                        this._handleMessage.apply(this, pollParams.resolveDataArgs(data));
+                        var sub = this;
+
+                        // if error is thrown in the inner callback it will not affect the entire longpolling flow
+                        utils.setTimeout(function () {
+                            sub._handleMessage.apply(this, pollParams.resolveDataArgs(data));
+                        }, 0);
                     });
                 }
             });

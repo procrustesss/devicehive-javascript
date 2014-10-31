@@ -137,6 +137,7 @@ var DHDevice = (function () {
      * @typedef {function} updateCommandFunction
      * @param {Object} result - command result
      * @param {function} cb - The callback that handles the response
+     * @throws {Error} - throws an error if status is not specified
      */
 
     /**
@@ -177,8 +178,10 @@ var DHDevice = (function () {
         var channel = this.channel;
         var selfDeviceId = this.deviceId;
         cmd.update = function (params, onUpdated) {
+            onUpdated = utils.createCallback(onUpdated);
+
             if (!params || !params.status) {
-                return onUpdated(utils.errorMessage('Command status must be specified'));
+                throw new Error('Command status must be specified');
             }
 
             var updateParams = {};

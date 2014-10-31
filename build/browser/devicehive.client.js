@@ -935,7 +935,7 @@ var DeviceHive = (function () {
          * Opens the first compatible communication channel to the server
          *
          * @param {openChannelCb} cb - The callback that handles the response
-         * @param {(Array | String)} channels - Channel names to open. Default supported channels: 'websocket', 'longpolling'
+         * @param {(Array | String)} [channels = null] - Channel names to open. Default supported channels: 'websocket', 'longpolling'
          */
         openChannel: function (cb, channels) {
             cb = utils.createCallback(cb);
@@ -1051,7 +1051,7 @@ var DeviceHive = (function () {
          * Subscribes to messages and return a subscription object
          *
          * @param {subscribeCb} cb - The callback that handles the response
-         * @param {SubscribeParameters} params - Subscription parameters
+         * @param {SubscribeParameters} [params = null] - Subscription parameters
          * @return {Subscription} - Added subscription object
          */
         subscribe: function (cb, params) {
@@ -1324,7 +1324,12 @@ var LongPollingChannel = (function () {
                     });
 
                     utils.forEach(relevantSubscriptions, function () {
-                        this._handleMessage.apply(this, pollParams.resolveDataArgs(data));
+                        var sub = this;
+
+                        // if error is thrown in the inner callback it will not affect the entire longpolling flow
+                        utils.setTimeout(function(){
+                            sub._handleMessage.apply(this, pollParams.resolveDataArgs(data));
+                        }, 0);
                     });
                 }
             });
