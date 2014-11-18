@@ -10,4 +10,4 @@ table td.title-column { width: 130px; }
 .device-led-state.off { background-image:url(images/led-off.gif); }
 .device-temperature { font-size: 1.1em; font-weight: bold; color: #004444; }
 .device-temperature.big { color: #dd4444; }
-.button { margin: 0px 2px; color: white; border-radius: 3px; padding: 6px 16px 8px; text-decoration: none; background-color: green; }
+.button { margin: 0 2px; color: white; border-radius: 3px; padding: 6px 16px 8px; text-decoration: none; background-color: green; }

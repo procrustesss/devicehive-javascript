@@ -1,0 +1,13 @@
+{
+    "name": "VirtualLedClient",
+    "version": "0.0.0",
+    "authors": [
+        "Artem Sorokin <sorokinjef@gmail.com>"
+    ],
+    "description": "VirtualLedClient example",
+    "license": "MIT",
+    "private": true,
+    "dependencies": {
+        "devicehive": "~1.3.0"
+    }
+}

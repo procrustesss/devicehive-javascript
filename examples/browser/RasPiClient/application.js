@@ -40,11 +40,17 @@
         this.deviceHive.channelStateChanged(function (data) {
             that.updateChannelState(data.newState);
         });
-        this.deviceHive.notification(function () {
-            that.handleNotification.apply(that, arguments);
-        });
+
         this.deviceHive.openChannel()
-            .done(function() { that.deviceHive.subscribe(device.id); })
+            .then(function() {
+                var sub = that.deviceHive.subscribe({deviceIds: device.id});
+
+                sub.message(function () {
+                    that.handleNotification.apply(that, arguments);
+                });
+
+                return sub;
+            })
             .fail(that.handleError);
     },
 
@@ -79,11 +85,11 @@
 
     // updates channel state
     updateChannelState: function (state) {
-        if (state === DeviceHive.channelState.connected)
+        if (state === DHClient.channelStates.connected)
             $(".channel-state").text("Connected");
-        if (state === DeviceHive.channelState.connecting)
+        if (state === DHClient.channelStates.connecting)
             $(".channel-state").text("Connecting");
-        if (state === DeviceHive.channelState.disconnected)
+        if (state === DHClient.channelStates.disconnected)
             $(".channel-state").text("Disconnected");
     },
 
@@ -95,8 +101,9 @@
 
     // updates temperature on the page
     updateTemperature: function (temperature) {
-        $(".device-temperature").text(temperature);
-        $(".device-temperature").toggleClass("big", temperature >= 30);
+        var $temp = $(".device-temperature");
+        $temp.text(temperature);
+        $temp.toggleClass("big", temperature >= 30);
     },
 
     formatDate: function(date) {
@@ -104,7 +111,7 @@
         return (date.getMonth() + 1) + "/" + date.getDate() + "/" + date.getFullYear() + " " + pad(date.getHours()) + ":" + pad(date.getMinutes()) + ":" + pad(date.getSeconds());
     },
 
-    handleError: function (e, xhr) {
+    handleError: function (e) {
         alert(e);
     }
-}
+};
