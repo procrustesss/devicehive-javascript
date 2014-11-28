@@ -1327,8 +1327,8 @@ var LongPollingChannel = (function () {
                         var sub = this;
 
                         // if error is thrown in the inner callback it will not affect the entire longpolling flow
-                        utils.setTimeout(function(){
-                            sub._handleMessage.apply(this, pollParams.resolveDataArgs(data));
+                        utils.setTimeout(function () {
+                            sub._handleMessage.apply(sub, pollParams.resolveDataArgs(data));
                         }, 0);
                     });
                 }
