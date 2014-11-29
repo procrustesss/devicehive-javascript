@@ -15,7 +15,7 @@ For solutions involving gateways, there is also gateway middleware that allows
 to interface with devices connected to it. Leave communications to [DeviceHive]
 and focus on actual product and innovation.
 
-JavaScript framework is a simple wrapper around [DeviceHive RESTful protocol](http://www.devicehive.com/restful) that includes a set of methods to access corresponding [DeviceHive] resources.
+JavaScript framework is a wrapper around [DeviceHive RESTful protocol](http://www.devicehive.com/restful) that includes a set of methods to access corresponding [DeviceHive] resources.
 
 #Components
 
@@ -75,44 +75,57 @@ Create new instance of the `DHClient` or `DHDevice`
 
 ```js
 // Create DHClient instance specifying login and password as an auth parameters
-var dhClient = new DHClient("http://nnXXXX.pg.devicehive.com/api", "login", "password");
+var dhClient = new DHClient("http://xxxxx.pg.devicehive.com/api", "login", "password");
 
 // Create DHClient instance specifying access key as an auth parameter
-var dhClient = new DHClient("http://nnXXXX.pg.devicehive.com/api", "AccessKeyExampleAccessKeyExampleAccessKeyEx=");
+var dhClient = new DHClient("http://xxxxx.pg.devicehive.com/api", "AccessKeyExampleAccessKeyExampleAccessKeyEx=");
 
 // Create DHDevice instance specifying device id and device key as an auth parameters
-var dhDevice = new DHDevice("http://nnXXXX.pg.devicehive.com/api", "someDeviceId_123-456", "someCustomDeviceKey");
+var dhDevice = new DHDevice("http://xxxxx.pg.devicehive.com/api", "someDeviceId_123-456", "someCustomDeviceKey");
 
 // Create DHDevice instance specifying device id and access key as an auth parameters
-var dhDevice = new DHDevice("http://nnXXXX.pg.devicehive.com/api", "someDeviceId_123-456", "AccessKeyExampleAccessKeyExampleAccessKeyEx=");
+var dhDevice = new DHDevice("http://xxxxx.pg.devicehive.com/api", "someDeviceId_123-456", "AccessKeyExampleAccessKeyExampleAccessKeyEx=");
 ```
 
 or if you want to use `Deferred`s use builders from `JQuery` object
 
 ```js
-var dhDevice = $.dhDevice("http://nnXXXX.pg.devicehive.com/api", "login", "password");
+var dhClient = $.dhClient("http://xxxx.pg.devicehive.com/api", "login", "password");
 ```
 
 After creating a new instance you will be able to get relevant information from the [DeviceHive] cloud
 
 ```js
-dhClient.getDevices(function(err, res){
-    ....
+// Use DHClient library to get information about devices registered in the cloud
+dhClient.getDevices(function(err, devices){
+    if(!err)
+        doWork(devices);
 });
 ```
 
-also you can register and update data in the cloud
+also you can register devices and update data in the cloud
 
 ```js
-// Device id will be set to the device id specified during DHDevice instance creation
-dhDevice.registerDevice({name: "testDevice"}, function(err, res){
-    ....
+// Use DHDevice library to register your device in the cloud.
+// It will be registered with an id specified during DHDevice instance creation 
+dhDevice.registerDevice({
+    name: "My Device",
+    // device key which can be used for device authentication.
+    key: "some device key",
+    // object with a description of the device class or existing device class id
+    deviceClass: {
+        name: 'My Device Class',
+        version: '0.0.1',
+        equipment: [
+            { name: 'Example sensor', type: 'sensor', code: '1234' }
+        ]
+    }
+}, function(err, res) {
+    console.log(err ? 'failed' : 'success');
 });
 ```
 
-The first argument in this callback is an error and the second argument is a result of the operation. The error will be `null` if no errors occurred.
-
-You can check [DHClient Implementation](src/client/client.js) and [DHDevice Implementation](src/device/device.js) to get more information about the supported methods.
+You can check [Core Implementation](src/core/devicehive.js), [DHClient Implementation](src/client/client.js) and [DHDevice Implementation](src/device/device.js) or read [DeviceHive RESTful protocol] reference to get more information about the supported methods.
 
 ##Channels
 
@@ -147,43 +160,48 @@ Take a look at this example for the **Client** library:
 
 ```js
 // Open the channel for DHDevice instance
-dhClient.openChannel(function(err){
-    if(err) return;
-    
-    // Send device command with custom parameters to the device with someDeviceId identifier
-    var cmd = dhClient.sendCommand(someDeviceId, 'test-command-name', { testParameter: 'testValue' });
-    
-    // Do some work after the command is processed by the device with an id "someDeviceId"
-    cmd.result(function(res){
+dhClient.openChannel(function(err) {
+    if (err) return;
+
+    // Send device command with custom parameters to the device with deviceId identifier
+    var cmd = dhClient.sendCommand(deviceId, 'command_name', {
+        someParameter: 'someValue'
+    });
+
+    // Do some work after the command is processed by the device with an id "deviceId"
+    cmd.result(function(res) {
         doSomeWork(res);
     }, waitTimeout);
-    
-    // Start listening for testCommandName1 and testCommandName2 notifications from devices with someDeviceId1 and someDeviceId2 identifiers
-    var subscription = dhClient.subscribe({
-        deviceIds: [someDeviceId1, someDeviceId2],
-        names: ['testCommandName1', 'testCommandName2']
-    }, function(err, subscription){
-        if(!err) // subscribed successfully
-        ...
+
+    // Start listening for notif1 and notif2 notifications from devices with deviceId1 and deviceId2 identifiers
+    var options = {
+        // optional device id or array of ids
+        // if not specified subscription will be created for all devices
+        deviceIds: [deviceId1, deviceId2],
+        // optional notification name or array of names,
+        // if not specified will listen for all notifications
+        names: ['notif1', 'notif2']
+    };
+    // pass the callback as a first parameter and options as a second
+    // if options object was not passed subscription will listen for all notifications for all devices
+    var subscription = dhClient.subscribe(function(err, subscription) {
+        if (!err)
+            console.log('subscribed successfully')
+    }, options);
+
+    // add handler for the subscription which will be invoked when a new notification is received
+    subscription.message(function(notification) {
+        doSomeWork(notification);
     });
-    
-    // add handler for the subscription which will be invoked when a new notification is received 
-    subscription.message(function(ntf){
-        doSomeWork(ntf);
-    });
-    
+
     // add as many handlers as you wish
-    var handler = subscription.message(function(ntf){
-        doSomeAdditionalWork(ntf);
+    var handler = subscription.message(function(notification) {
+        doSomeAdditionalWork(notification);
     });
-    
-    ....
-    
+
     // and of course you can remove any handler
     handler.unbind();
 });
-
-......
 
 // Close the channel for DHClient instance
 dhClient.closeChannel();
@@ -192,34 +210,45 @@ dhClient.closeChannel();
 Here is an example for the **Device** library:
 
 ```js
+
 // Open the channel for DHDevice instance
-dhDevice.openChannel(function(err){
-    if(err) return;
-    
+dhDevice.openChannel(function(err) {
+    if (err) return;
+
     // Send device notification with the custom parameters
-    dhDevice.sendNotification('test-notification-name', { testParameter: 'testValue' });
-    
-    // Start listening for testCommandName1 and testCommandName2 commands
-    var subscription = dhClient.subscribe({
-        names: ['testCommandName1', 'testCommandName2']
-    }, function(err, subscription){
-        if(!err) // subscribed successfully
-        ...
+    dhDevice.sendNotification('notification_name', {
+        someParameter: 'someValue'
     });
-    
-    // add handler for the subscription which will be invoked when a new command is received 
-    subscription.message(function(cmd){
+
+    // Start listening for command1 and command2 sent by some client
+    var options = {
+        // optional command name or array of names,
+        // if not specified will listen for all commands
+        names: ['command1', 'command2']
+    };
+    // pass the callback as a first parameter and options as a second
+    // if options object was not passed subscription will listen for all commands
+    var subscription = dhClient.subscribe(function(err, subscription) {
+        if (!err)
+            console.log('subscribed successfully')
+    }, options);
+
+    // add handler for the subscription which will be invoked when a new command is received
+    subscription.message(function(cmd) {
         var workResult = doSomeWork(cmd);
-        
+
         // Update a received command so the client can be notified about the result
         cmd.update(workResult);
     });
 
-....
+    // add as many handlers as you wish
+    var handler = subscription.message(function(notification) {
+        doSomeAdditionalWork(notification);
+    });
 
+    // and of course you can remove any handler
+    handler.unbind();
 });
-
-......
 
 // Close the channel for DHDevice instance
 dhDevice.closeChannel();
