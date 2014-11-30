@@ -2,6 +2,7 @@
 
 [DeviceHive]: http://devicehive.com "DeviceHive framework"
 [DataArt]: http://dataart.com "DataArt"
+[DeviceHive RESTful protocol]: http://www.devicehive.com/restful "DeviceHive RESTful protocol"
 
 [DeviceHive] turns any connected device into the part of Internet of Things.
 It provides the communication layer, control software and multi-platform
@@ -15,7 +16,7 @@ For solutions involving gateways, there is also gateway middleware that allows
 to interface with devices connected to it. Leave communications to [DeviceHive]
 and focus on actual product and innovation.
 
-JavaScript framework is a wrapper around [DeviceHive RESTful protocol](http://www.devicehive.com/restful) that includes a set of methods to access corresponding [DeviceHive] resources.
+JavaScript framework is a wrapper around [DeviceHive RESTful protocol] that includes a set of methods to access corresponding [DeviceHive] resources.
 
 #Components
 
@@ -125,7 +126,7 @@ dhDevice.registerDevice({
 });
 ```
 
-You can check [Core Implementation](src/core/devicehive.js), [DHClient Implementation](src/client/client.js) and [DHDevice Implementation](src/device/device.js) or read [DeviceHive RESTful protocol] reference to get more information about the supported methods.
+You can check [Core Implementation](src/core/devicehive.js), [DHClient Implementation](src/client/client.js) and [DHDevice Implementation](src/device/device.js) or read [DeviceHive RESTful protocol] reference to get more information about supported methods.
 
 ##Channels
 
