@@ -1,3 +1,5 @@
+[![Bower version](https://badge.fury.io/bo/devicehive.svg)](http://badge.fury.io/bo/devicehive)
+
 #DeviceHive JavaScript framework
 
 [DeviceHive]: http://devicehive.com "DeviceHive framework"
