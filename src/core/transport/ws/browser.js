@@ -8,11 +8,12 @@ var WebSocketTransport = (function () {
     WebSocketTransport.prototype = {
         _handler: utils.noop,
 
-        open: function (url, cb) {
+        open: function (url, cb, WebSocketRfc) {
             cb = utils.createCallback(cb);
 
             var notSupportedErr = utils.errorMessage('WebSockets are not supported');
             try {
+                WebSocket = WebSocket || WebSocketRfc;
                 if (!WebSocket) {
                     return cb(notSupportedErr);
                 }

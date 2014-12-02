@@ -227,15 +227,19 @@ var utils = (function () {
                 val;
             for (key in obj) {
                 if (obj.hasOwnProperty(key)) {
-                    if (str != '') {
+                    if (str !== '') {
                         str += '&';
                     }
                     val = obj[key];
-                    val = val == null ? '' : val;
+                    val = val === null ? '' : val;
                     str += encodeURIComponent(key) + '=' + encodeURIComponent(val);
                 }
             }
             return str;
+        },
+
+        isRequestWithBody : function(method){
+            return method == 'POST' || method == 'PUT';
         },
 
         makeUrl: function (params) {

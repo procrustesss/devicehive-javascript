@@ -236,15 +236,19 @@ var utils = (function () {
                 val;
             for (key in obj) {
                 if (obj.hasOwnProperty(key)) {
-                    if (str != '') {
+                    if (str !== '') {
                         str += '&';
                     }
                     val = obj[key];
-                    val = val == null ? '' : val;
+                    val = val === null ? '' : val;
                     str += encodeURIComponent(key) + '=' + encodeURIComponent(val);
                 }
             }
             return str;
+        },
+
+        isRequestWithBody : function(method){
+            return method == 'POST' || method == 'PUT';
         },
 
         makeUrl: function (params) {
@@ -289,6 +293,7 @@ var utils = (function () {
 
     return utils;
 }());
+
 var Events = (function () {
     'use strict';
 
@@ -433,10 +438,11 @@ var http = (function () {
                 abort: function () {
                     xhr.abort();
                 }
-            }
+            };
         }
-    }
+    };
 }());
+
 var restApi = (function () {
     'use strict';
 
@@ -1446,11 +1452,12 @@ var WebSocketTransport = (function () {
     WebSocketTransport.prototype = {
         _handler: utils.noop,
 
-        open: function (url, cb) {
+        open: function (url, cb, WebSocketRfc) {
             cb = utils.createCallback(cb);
 
             var notSupportedErr = utils.errorMessage('WebSockets are not supported');
             try {
+                WebSocket = WebSocket || WebSocketRfc;
                 if (!WebSocket) {
                     return cb(notSupportedErr);
                 }
@@ -1541,6 +1548,7 @@ var WebSocketTransport = (function () {
 
     return WebSocketTransport;
 }());
+
 var WebSocketClientApi = (function () {
     'use strict';
 

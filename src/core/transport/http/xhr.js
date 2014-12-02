@@ -65,7 +65,7 @@ var http = (function () {
                 abort: function () {
                     xhr.abort();
                 }
-            }
+            };
         }
-    }
+    };
 }());
