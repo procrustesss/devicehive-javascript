@@ -1,3 +1,5 @@
+// TODO Refactor build script
+
 var gulp = require('gulp'),
     umd = require('gulp-umd'),
     concat = require('gulp-concat'),
@@ -59,12 +61,38 @@ var buildConfig = {
                 exports: 'JqDHClient'
             }
         }
+    },
+    node: {
+        '*': {
+            files: [
+                './src/core/utils/utils.js',
+                './src/core/utils/events.js',
+                './src/core/transport/http/http.js',
+                './src/core/transport/ws/browser.js',
+                './src/core/transport/ws/ws.js',
+                './src/core/api/rest.js',
+                './src/core/devicehive.js',
+                './src/core/subscription.js',
+                './src/core/channels/longpolling.js',
+                './src/core/transport/longpolling.js',
+                './src/core/api/ws/client.js',
+                './src/core/api/ws/device.js',
+                './src/client/channels/*.js',
+                './src/device/channels/*.js',
+                './src/client/client.js',
+                './src/device/device.js',
+                './src/core/node.js'
+            ],
+            exports: 'Main'
+        }
     }
 };
 
 function build(config, platform, type, subtype) {
+    var fileName = type === '*' ? 'devicehive.js' : 'devicehive.' + type + (subtype ? '.' + subtype : '') + '.js';
+
     gulp.src(config.files)
-        .pipe(concat('devicehive.' + type + (subtype ? '.' + subtype : '') + '.js'))
+        .pipe(concat(fileName))
         .pipe(umd({
             exports: function (file) {
                 return config.exports;
@@ -83,7 +111,7 @@ function build(config, platform, type, subtype) {
 function buildByPlatform(platform) {
     var platformConfig = buildConfig[platform];
     for (var type in platformConfig) {
-        build(platformConfig[type], platform, type)
+        build(platformConfig[type], platform, type);
     }
 }
 
@@ -117,7 +145,7 @@ gulp.task('compress', function () {
         .pipe(rename({
             suffix: '.min'
         }))
-        .pipe(gulp.dest('./build/browser'))
+        .pipe(gulp.dest('./build/browser'));
 });
 
 gulp.task('lint', function () {
