@@ -76,13 +76,16 @@ var DeviceHive = (function () {
     /**
      * Core DeviceHive class
      */
-    DeviceHive = {
-        channelStates: channelStates,
-
+    var DeviceHive = function (){
         /**
          * Current channel state
          */
-        channelState: channelStates.disconnected,
+        this.channelState = channelStates.disconnected;
+        this._events = new Events();
+    };
+
+    DeviceHive.prototype = {
+        channelStates: channelStates,
 
         /**
          * Opens the first compatible communication channel to the server
@@ -193,7 +196,6 @@ var DeviceHive = (function () {
             cb = utils.createCallback(cb);
 
             var self = this;
-            this._events = this._events || new Events();
             return this._events.bind('onChannelStateChanged', function (data) {
                 cb.call(self, data);
             });

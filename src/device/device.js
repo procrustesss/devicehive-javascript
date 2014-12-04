@@ -30,7 +30,7 @@ var DHDevice = (function () {
         }
     };
 
-    DHDevice.prototype = DeviceHive;
+    DHDevice.prototype = new DeviceHive();
     DHDevice.constructor = DHDevice;
 
     /**
@@ -146,7 +146,7 @@ var DHDevice = (function () {
      * @param {Object} device - Current device information
      */
 
-    var oldSubscribe = DeviceHive.subscribe;
+    var oldSubscribe = DHDevice.prototype.subscribe;
     /**
      * Subscribes to device commands and returns a subscription object
      * Use subscription object to bind to a 'new command received' event
@@ -206,7 +206,7 @@ var DHDevice = (function () {
      * DHDevice channel states
      * @borrows DeviceHive#channelStates
      */
-    DHDevice.channelStates = DeviceHive.channelStates;
+    DHDevice.channelStates = DHDevice.prototype.channelStates;
 
     /**
      * DHDevice subscription states

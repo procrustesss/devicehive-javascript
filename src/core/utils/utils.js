@@ -238,7 +238,11 @@ var utils = (function () {
             return str;
         },
 
-        isRequestWithBody : function(method){
+        isHttpRequestSuccessfull: function (statusCode){
+            return statusCode && statusCode >= 200 && statusCode < 300 || statusCode === 304;
+        },
+
+        isRequestWithBody: function (method){
             return method == 'POST' || method == 'PUT';
         },
 
@@ -256,21 +260,15 @@ var utils = (function () {
             return url;
         },
 
-        serverErrorMessage: function (http) {
-            var errMsg = 'DeviceHive server error';
-            if (http.responseText) {
-                try {
-                    errMsg += ' - ' + JSON.parse(http.responseText).message;
-                }
-                catch (e) {
-                    errMsg += ' - ' + http.responseText;
-                }
-            }
-            return {error: errMsg, request: http};
-        },
-
         errorMessage: function (msg) {
             return {error: 'DeviceHive error: ' + msg};
+        },
+
+        serverErrorMessage: function (text, json) {
+            var msg = text && json && (json.message || json.Message);
+            msg += json && json.ExceptionMessage && (' ' + json.ExceptionMessage);
+
+            return 'DeviceHive server error' + (msg && ' - ' + msg);
         },
 
         setTimeout: function (cb, delay) {

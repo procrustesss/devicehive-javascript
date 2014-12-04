@@ -39,17 +39,21 @@ var http = (function () {
             }
 
             xhr.onreadystatechange = function () {
-                var isSuccess, err;
-
                 if (xhr.readyState === 4) {
+                    var isSuccess = utils.isHttpRequestSuccessfull(xhr.status),
+                        responseObj = xhr.responseText && JSON.parse(xhr.responseText);
 
-                    isSuccess = xhr.status && xhr.status >= 200 && xhr.status < 300 || xhr.status === 304;
-                    if (!isSuccess) {
-                        err = utils.serverErrorMessage(xhr);
+                    if (isSuccess) {
+                        return cb(null, responseObj);
                     }
 
-                    var result = xhr.responseText ? JSON.parse(xhr.responseText) : null;
-                    return cb(err, result);
+                    var cbErrorMessage = utils.serverErrorMessage(xhr.responseText, responseObj);
+                    var err = {
+                        error: errorMessage,
+                        request: xhr
+                    };
+
+                    return cb(err);
                 }
             };
 

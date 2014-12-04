@@ -247,7 +247,11 @@ var utils = (function () {
             return str;
         },
 
-        isRequestWithBody : function(method){
+        isHttpRequestSuccessfull: function (statusCode){
+            return statusCode && statusCode >= 200 && statusCode < 300 || statusCode === 304;
+        },
+
+        isRequestWithBody: function (method){
             return method == 'POST' || method == 'PUT';
         },
 
@@ -265,21 +269,15 @@ var utils = (function () {
             return url;
         },
 
-        serverErrorMessage: function (http) {
-            var errMsg = 'DeviceHive server error';
-            if (http.responseText) {
-                try {
-                    errMsg += ' - ' + JSON.parse(http.responseText).message;
-                }
-                catch (e) {
-                    errMsg += ' - ' + http.responseText;
-                }
-            }
-            return {error: errMsg, request: http};
-        },
-
         errorMessage: function (msg) {
             return {error: 'DeviceHive error: ' + msg};
+        },
+
+        serverErrorMessage: function (text, json) {
+            var msg = text && json && (json.message || json.Message);
+            msg += json && json.ExceptionMessage && (' ' + json.ExceptionMessage);
+
+            return 'DeviceHive server error' + (msg && ' - ' + msg);
         },
 
         setTimeout: function (cb, delay) {
@@ -412,17 +410,21 @@ var http = (function () {
             }
 
             xhr.onreadystatechange = function () {
-                var isSuccess, err;
-
                 if (xhr.readyState === 4) {
+                    var isSuccess = utils.isHttpRequestSuccessfull(xhr.status),
+                        responseObj = xhr.responseText && JSON.parse(xhr.responseText);
 
-                    isSuccess = xhr.status && xhr.status >= 200 && xhr.status < 300 || xhr.status === 304;
-                    if (!isSuccess) {
-                        err = utils.serverErrorMessage(xhr);
+                    if (isSuccess) {
+                        return cb(null, responseObj);
                     }
 
-                    var result = xhr.responseText ? JSON.parse(xhr.responseText) : null;
-                    return cb(err, result);
+                    var cbErrorMessage = utils.serverErrorMessage(xhr.responseText, responseObj);
+                    var err = {
+                        error: errorMessage,
+                        request: xhr
+                    };
+
+                    return cb(err);
                 }
             };
 
@@ -929,13 +931,16 @@ var DeviceHive = (function () {
     /**
      * Core DeviceHive class
      */
-    DeviceHive = {
-        channelStates: channelStates,
-
+    var DeviceHive = function (){
         /**
          * Current channel state
          */
-        channelState: channelStates.disconnected,
+        this.channelState = channelStates.disconnected;
+        this._events = new Events();
+    };
+
+    DeviceHive.prototype = {
+        channelStates: channelStates,
 
         /**
          * Opens the first compatible communication channel to the server
@@ -1046,7 +1051,6 @@ var DeviceHive = (function () {
             cb = utils.createCallback(cb);
 
             var self = this;
-            this._events = this._events || new Events();
             return this._events.bind('onChannelStateChanged', function (data) {
                 cb.call(self, data);
             });
@@ -1155,6 +1159,7 @@ var DeviceHive = (function () {
  * @typedef {Object} Http
  * @property {function} abort - Aborts current request
  */
+
 var Subscription = (function () {
     'use strict';
 
@@ -1380,7 +1385,9 @@ var LongPolling = (function () {
     'use strict';
 
     var poll = function (self, timestamp) {
-        var params = { timestamp: timestamp };
+        var params = {
+            timestamp: timestamp
+        };
 
         var continuePollingCb = function (err, res) {
             if (!err) {
@@ -1398,7 +1405,7 @@ var LongPolling = (function () {
 
                 poll(self, lastTimestamp || timestamp);
             } else {
-                if (self._polling) {
+                if (self._polling && !request.abortedManually) {
                     // Polling unexpectedly stopped probably connection was lost. Try reconnect in 1 second
                     utils.setTimeout(function () {
                         poll(self, timestamp);
@@ -1407,12 +1414,12 @@ var LongPolling = (function () {
             }
         };
 
-        self._request = self._polling && self._poller.executePoll(params, continuePollingCb);
+        var request = self._request = self._polling && self._poller.executePoll(params, continuePollingCb);
     };
 
     var LongPolling = function (serviceUrl, poller) {
         this.serviceUrl = serviceUrl;
-        this._poller = poller
+        this._poller = poller;
     };
 
     LongPolling.prototype = {
@@ -1422,30 +1429,38 @@ var LongPolling = (function () {
             this._polling = true;
 
             var self = this;
-            return this._request = restApi.info(this.serviceUrl, function (err, res) {
-                if (err){
-                    var wasPolling = self._polling;
+            var request = this._request = restApi.info(this.serviceUrl, function (err, res) {
+                if (err) {
                     self._polling = false;
-                    return cb(wasPolling ? err : null);
+                    return cb(request.abortedManually ? null : err);
                 }
 
                 poll(self, res.serverTimestamp);
                 return cb(null);
             });
+
+            return request;
         },
 
         stopPolling: function () {
             this._polling = false;
-            this._request && this._request.abort();
+
+            if (this._request) {
+                this._request.abortedManually = true;
+                this._request.abort();
+            }
         }
     };
 
     return LongPolling;
 }());
+
 var WebSocketTransport = (function () {
     'use strict';
 
-    var WebSocketTransport = utils.noop;
+    var WebSocketTransport = function () {
+        this.WebSocket = this.WebSocket || window && window.WebSocket;
+    };
 
     WebSocketTransport.requestTimeout = 10000;
 
@@ -1455,14 +1470,9 @@ var WebSocketTransport = (function () {
         open: function (url, cb, WebSocketRfc) {
             cb = utils.createCallback(cb);
 
-            var notSupportedErr = utils.errorMessage('WebSockets are not supported');
-            try {
-                WebSocket = WebSocket || WebSocketRfc;
-                if (!WebSocket) {
-                    return cb(notSupportedErr);
-                }
-            } catch (e){
-                return cb(notSupportedErr);
+            var WebSocket = this.WebSocket;
+            if(!WebSocket){
+                return cb(utils.errorMessage('WebSockets are not supported'));
             }
 
             var self = this;
@@ -1484,14 +1494,14 @@ var WebSocketTransport = (function () {
                         utils.clearTimeout(request.timeout);
                         if (response.status && response.status == 'success') {
                             request.cb(null, response);
-                        }
-                        else {
-                            request.cb({error: response.error});
+                        } else {
+                            request.cb({
+                                error: response.error
+                            });
                         }
                         delete self._requests[response.requestId];
                     }
-                }
-                else {
+                } else {
                     self._handler(response);
                 }
             };
@@ -1848,7 +1858,7 @@ var DHDevice = (function () {
         }
     };
 
-    DHDevice.prototype = DeviceHive;
+    DHDevice.prototype = new DeviceHive();
     DHDevice.constructor = DHDevice;
 
     /**
@@ -1964,7 +1974,7 @@ var DHDevice = (function () {
      * @param {Object} device - Current device information
      */
 
-    var oldSubscribe = DeviceHive.subscribe;
+    var oldSubscribe = DHDevice.prototype.subscribe;
     /**
      * Subscribes to device commands and returns a subscription object
      * Use subscription object to bind to a 'new command received' event
@@ -2024,7 +2034,7 @@ var DHDevice = (function () {
      * DHDevice channel states
      * @borrows DeviceHive#channelStates
      */
-    DHDevice.channelStates = DeviceHive.channelStates;
+    DHDevice.channelStates = DHDevice.prototype.channelStates;
 
     /**
      * DHDevice subscription states
@@ -2034,5 +2044,6 @@ var DHDevice = (function () {
 
     return DHDevice;
 }());
+
 return DHDevice;
 }));

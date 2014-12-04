@@ -12,29 +12,48 @@ var http = (function () {
             httpParams.headers = params.headers;
             httpParams.method = params.method || 'GET';
 
-            var dataInBody = isRequestWithBody();
-            if (dataInBody) {
+            var json = utils.isRequestWithBody(params.method) ? JSON.stringify(params.data) : null;
+            if (json) {
                 httpParams.headers['Content-Type'] = 'application/json';
+                httpParams.headers['Content-Length'] = json.length;
             }
 
             var request = http.request(httpParams, function (response) {
-                var body = '';
+                var isSuccess = utils.isHttpRequestSuccessfull(response.statusCode),
+                    responseText = '';
+
                 response.on('data', function (chunk) {
-                    body += chunk;
+                    responseText += chunk;
                 });
+
                 response.on('end', function () {
-                    var parsed = body && JSON.parse(body);
-                    return cb(null, parsed);
+                    var responseObj = responseText && JSON.parse(responseText);
+
+                    if (isSuccess) {
+                        return cb(null, responseObj);
+                    }
+
+                    var cbErrorMessage = utils.serverErrorMessage(responseText, responseObj);
+
+                    var err = {
+                        error: cbErrorMessage,
+                        request: request,
+                        response: response
+                    };
+
+                    return cb(err);
                 });
             });
 
             request.on('error', function (err) {
-                err = utils.serverErrorMessage(err);
-                return cb(err);
+                return cb({
+                    error: err && err.message,
+                    request: request
+                });
             });
 
-            if (dataInBody) {
-                request.wite(JSON.stringify(params.data));
+            if (json) {
+                request.write(json);
             }
 
             request.end();

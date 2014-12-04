@@ -247,7 +247,11 @@ var utils = (function () {
             return str;
         },
 
-        isRequestWithBody : function(method){
+        isHttpRequestSuccessfull: function (statusCode){
+            return statusCode && statusCode >= 200 && statusCode < 300 || statusCode === 304;
+        },
+
+        isRequestWithBody: function (method){
             return method == 'POST' || method == 'PUT';
         },
 
@@ -265,21 +269,15 @@ var utils = (function () {
             return url;
         },
 
-        serverErrorMessage: function (http) {
-            var errMsg = 'DeviceHive server error';
-            if (http.responseText) {
-                try {
-                    errMsg += ' - ' + JSON.parse(http.responseText).message;
-                }
-                catch (e) {
-                    errMsg += ' - ' + http.responseText;
-                }
-            }
-            return {error: errMsg, request: http};
-        },
-
         errorMessage: function (msg) {
             return {error: 'DeviceHive error: ' + msg};
+        },
+
+        serverErrorMessage: function (text, json) {
+            var msg = text && json && (json.message || json.Message);
+            msg += json && json.ExceptionMessage && (' ' + json.ExceptionMessage);
+
+            return 'DeviceHive server error' + (msg && ' - ' + msg);
         },
 
         setTimeout: function (cb, delay) {
@@ -385,29 +383,48 @@ var http = (function () {
             httpParams.headers = params.headers;
             httpParams.method = params.method || 'GET';
 
-            var dataInBody = isRequestWithBody();
-            if (dataInBody) {
+            var json = utils.isRequestWithBody(params.method) ? JSON.stringify(params.data) : null;
+            if (json) {
                 httpParams.headers['Content-Type'] = 'application/json';
+                httpParams.headers['Content-Length'] = json.length;
             }
 
             var request = http.request(httpParams, function (response) {
-                var body = '';
+                var isSuccess = utils.isHttpRequestSuccessfull(response.statusCode),
+                    responseText = '';
+
                 response.on('data', function (chunk) {
-                    body += chunk;
+                    responseText += chunk;
                 });
+
                 response.on('end', function () {
-                    var parsed = body && JSON.parse(body);
-                    return cb(null, parsed);
+                    var responseObj = responseText && JSON.parse(responseText);
+
+                    if (isSuccess) {
+                        return cb(null, responseObj);
+                    }
+
+                    var cbErrorMessage = utils.serverErrorMessage(responseText, responseObj);
+
+                    var err = {
+                        error: cbErrorMessage,
+                        request: request,
+                        response: response
+                    };
+
+                    return cb(err);
                 });
             });
 
             request.on('error', function (err) {
-                err = utils.serverErrorMessage(err);
-                return cb(err);
+                return cb({
+                    error: err && err.message,
+                    request: request
+                });
             });
 
-            if (dataInBody) {
-                request.wite(JSON.stringify(params.data));
+            if (json) {
+                request.write(json);
             }
 
             request.end();
@@ -424,7 +441,9 @@ var http = (function () {
 var WebSocketTransport = (function () {
     'use strict';
 
-    var WebSocketTransport = utils.noop;
+    var WebSocketTransport = function () {
+        this.WebSocket = this.WebSocket || window && window.WebSocket;
+    };
 
     WebSocketTransport.requestTimeout = 10000;
 
@@ -434,14 +453,9 @@ var WebSocketTransport = (function () {
         open: function (url, cb, WebSocketRfc) {
             cb = utils.createCallback(cb);
 
-            var notSupportedErr = utils.errorMessage('WebSockets are not supported');
-            try {
-                WebSocket = WebSocket || WebSocketRfc;
-                if (!WebSocket) {
-                    return cb(notSupportedErr);
-                }
-            } catch (e){
-                return cb(notSupportedErr);
+            var WebSocket = this.WebSocket;
+            if(!WebSocket){
+                return cb(utils.errorMessage('WebSockets are not supported'));
             }
 
             var self = this;
@@ -463,14 +477,14 @@ var WebSocketTransport = (function () {
                         utils.clearTimeout(request.timeout);
                         if (response.status && response.status == 'success') {
                             request.cb(null, response);
-                        }
-                        else {
-                            request.cb({error: response.error});
+                        } else {
+                            request.cb({
+                                error: response.error
+                            });
                         }
                         delete self._requests[response.requestId];
                     }
-                }
-                else {
+                } else {
                     self._handler(response);
                 }
             };
@@ -532,12 +546,81 @@ var WebSocketTransport = (function () {
     'use strict';
 
     var ws = require('ws');
+    WebSocketTransport.prototype.WebSocket = ws;
+}());
 
-    var oldOpen = WebSocketTransport.prototype.open;
+var LongPolling = (function () {
+    'use strict';
 
-    WebSocketTransport.prototype.open = function (url, cb) {
-        return oldOpen.call(this, url, cb, ws);
+    var poll = function (self, timestamp) {
+        var params = {
+            timestamp: timestamp
+        };
+
+        var continuePollingCb = function (err, res) {
+            if (!err) {
+                var lastTimestamp = null;
+                if (res) {
+                    utils.forEach(res, function () {
+                        var newTimestamp = self._poller.resolveTimestamp(this);
+                        if (!lastTimestamp || newTimestamp > lastTimestamp) {
+                            lastTimestamp = newTimestamp;
+                        }
+
+                        self._poller.onData(this);
+                    });
+                }
+
+                poll(self, lastTimestamp || timestamp);
+            } else {
+                if (self._polling && !request.abortedManually) {
+                    // Polling unexpectedly stopped probably connection was lost. Try reconnect in 1 second
+                    utils.setTimeout(function () {
+                        poll(self, timestamp);
+                    }, 1000);
+                }
+            }
+        };
+
+        var request = self._request = self._polling && self._poller.executePoll(params, continuePollingCb);
     };
+
+    var LongPolling = function (serviceUrl, poller) {
+        this.serviceUrl = serviceUrl;
+        this._poller = poller;
+    };
+
+    LongPolling.prototype = {
+        startPolling: function (cb) {
+            cb = utils.createCallback(cb);
+
+            this._polling = true;
+
+            var self = this;
+            var request = this._request = restApi.info(this.serviceUrl, function (err, res) {
+                if (err) {
+                    self._polling = false;
+                    return cb(request.abortedManually ? null : err);
+                }
+
+                poll(self, res.serverTimestamp);
+                return cb(null);
+            });
+
+            return request;
+        },
+
+        stopPolling: function () {
+            this._polling = false;
+
+            if (this._request) {
+                this._request.abortedManually = true;
+                this._request.abort();
+            }
+        }
+    };
+
+    return LongPolling;
 }());
 
 var restApi = (function () {
@@ -948,597 +1031,6 @@ var restApi = (function () {
         }
     };
 }());
-var DeviceHive = (function () {
-    'use strict';
-
-    var changeChannelState = function (self, newState, oldState) {
-            oldState = oldState || self.channelState;
-            if (oldState === self.channelState) {
-                self.channelState = newState;
-                self._events = self._events || new Events();
-                self._events.trigger('onChannelStateChanged', { oldState: oldState, newState: newState });
-                return true;
-            }
-            return false;
-        },
-        findSubscription = function (channel, id) {
-            return utils.find(channel.subscriptions, function () {
-                return this.id === id;
-            });
-        },
-        removeSubscription = function (channel, subscription) {
-            var index = channel.subscriptions.indexOf(subscription);
-            channel.subscriptions.splice(index, 1);
-            subscription._changeState(Subscription.states.unsubscribed);
-        };
-
-    /**
-     * DeviceHive channel states
-     * @readonly
-     * @enum {number}
-     */
-    var channelStates = {
-        /** channel is not connected */
-        disconnected: 0,
-        /** channel is being connected */
-        connecting: 1,
-        /** channel is connected */
-        connected: 2
-    };
-
-    /**
-     * @callback openChannelCb
-     * @param {DHError} err - An error object if any errors occurred
-     * @param {Object} channel - A name of the opened channel
-     */
-
-    /**
-     * @typedef {Object} State
-     * @property {Number} oldState - previous state
-     * @property {Number} newState - current state
-     */
-
-    /**
-     * @callback channelStateChangedCb
-     * @param {DHError} err - An error object if any errors occurred
-     * @param {State} state - A channel state object
-     */
-
-    /**
-     * @callback subscribeCb
-     * @param {DHError} err - An error object if any errors occurred
-     * @param {Subscription} subscription - added subscription object
-     */
-
-    /**
-     * @callback unsubscribeCb
-     * @param {DHError} err - An error object if any errors occurred
-     * @param {Subscription} subscription - removed subscription object
-     */
-
-    /**
-     * @typedef {Object} SubscribeParameters
-     * @property {function} onMessage - a callback that will be invoked when a message is received
-     * @property {(Array | String)} deviceIds - single device identifier, array of identifiers or null (subscribe to all devices)
-     * @property {(Array | String)} names - notification name, array of notifications or null (subscribe to all notifications)
-     */
-
-    /**
-     * Core DeviceHive class
-     */
-    DeviceHive = {
-        channelStates: channelStates,
-
-        /**
-         * Current channel state
-         */
-        channelState: channelStates.disconnected,
-
-        /**
-         * Opens the first compatible communication channel to the server
-         *
-         * @param {openChannelCb} cb - The callback that handles the response
-         * @param {(Array | String)} [channels = null] - Channel names to open. Default supported channels: 'websocket', 'longpolling'
-         */
-        openChannel: function (cb, channels) {
-            cb = utils.createCallback(cb);
-
-            if (!changeChannelState(this, this.channelStates.connecting, this.channelStates.disconnected)) {
-                cb(null);
-                return;
-            }
-
-            var self = this;
-
-            function manageInfo(info) {
-                self.serverInfo = info;
-
-                if (!channels) {
-                    channels = [];
-                    utils.forEach(self._channels, function (t) {
-                        channels.push(t);
-                    });
-                }
-                else if (!utils.isArray(channels)) {
-                    channels = [channels];
-                }
-
-                var emptyChannel = true;
-
-                (function checkChannel(channels) {
-                    utils.forEach(channels, function (ind) { // enumerate all channels in order
-                        var channel = this;
-                        if (self._channels[channel]) {
-                            self.channel = new self._channels[channel](self);
-                            self.channel.open(function (err) {
-                                if (err) {
-                                    var channelsToCheck = channels.slice(++ind);
-                                    if (!channelsToCheck.length)
-                                        return cb(utils.errorMessage('Cannot open any of the specified channels'));
-                                    checkChannel(channelsToCheck);
-                                } else {
-                                    changeChannelState(self, self.channelStates.connected);
-                                    cb(null, channel);
-                                }
-                            });
-
-                            return emptyChannel = false;
-                        }
-                    });
-                })(channels);
-
-                emptyChannel && cb(utils.errorMessage('None of the specified channels are supported'));
-            }
-
-            if (this.serverInfo) {
-                manageInfo(this.serverInfo);
-            } else {
-                restApi.info(this.serviceUrl, function (err, res) {
-                    if (!err) {
-                        manageInfo(res);
-                    } else {
-                        changeChannelState(self, self.channelStates.disconnected);
-                        cb(err, res);
-                    }
-                });
-            }
-        },
-
-        /**
-         * Closes the communications channel to the server
-         *
-         * @param {noDataCallback} cb - The callback that handles the response
-         */
-        closeChannel: function (cb) {
-            cb = utils.createCallback(cb);
-
-            if (this.channelState === this.channelStates.disconnected)
-                return cb(null);
-
-            var self = this;
-            if (this.channel) {
-                this.channel.close(function (err, res) {
-                    if (err) {
-                        return cb(err, res);
-                    }
-
-                    utils.forEach(utils.toArray(self.channel.subscriptions), function () {
-                        removeSubscription(self.channel, this);
-                    });
-
-                    self.channel = null;
-
-                    changeChannelState(self, self.channelStates.disconnected);
-                    return cb(null);
-                });
-            }
-        },
-
-        /**
-         * Adds a callback that will be invoked when the communication channel state is changed
-         *
-         * @param {channelStateChangedCb} cb - The callback that handles an event
-         */
-        channelStateChanged: function (cb) {
-            cb = utils.createCallback(cb);
-
-            var self = this;
-            this._events = this._events || new Events();
-            return this._events.bind('onChannelStateChanged', function (data) {
-                cb.call(self, data);
-            });
-        },
-
-
-        /**
-         * Subscribes to messages and return a subscription object
-         *
-         * @param {subscribeCb} cb - The callback that handles the response
-         * @param {SubscribeParameters} [params = null] - Subscription parameters
-         * @return {Subscription} - Added subscription object
-         */
-        subscribe: function (cb, params) {
-            this._ensureConnectedState();
-            cb = utils.createCallback(cb);
-            params = params || {};
-
-            var channel = this.channel;
-            var subscription = new Subscription(params.deviceIds, params.names, params.onMessage);
-            channel.subscriptions.push(subscription);
-            subscription._changeState(Subscription.states.subscribing);
-
-            channel.subscribe(subscription, function (err, id) {
-                if (err) {
-                    removeSubscription(channel, subscription);
-                    return cb(err);
-                }
-
-                subscription._setId(id);
-                subscription._changeState(Subscription.states.subscribed);
-
-                return cb(err, subscription);
-            });
-
-            return subscription;
-        },
-
-        /**
-         * Remove subscription to messages
-         *
-         * @param {(String | Subscription)} subscriptionOrId - Identifier of the subscription or subscription object returned by subscribe method
-         * @param {unsubscribeCb} cb - The callback that handles the response
-         * @return {Subscription} - Added subscription object
-         * @throws Will throw an error if subscriptionId was not found
-         */
-        unsubscribe: function (subscriptionOrId, cb) {
-            this._ensureConnectedState();
-            cb = utils.createCallback(cb);
-            var channel = this.channel;
-
-            if (!subscriptionOrId)
-                throw new Error('Subscription must be defined. To unsubscribe from all subscriptions just close the channel');
-
-            var subscription = subscriptionOrId;
-
-            if (!(subscriptionOrId instanceof Subscription)) {
-                subscription = findSubscription(channel, subscriptionOrId);
-
-                if (!subscription)
-                    return cb(utils.errorMessage('Subscription with id ' + subscriptionOrId + ' was not found'));
-            }
-
-            if (subscription.state === Subscription.states.unsubscribed) {
-                return cb(null);
-            }
-
-            return channel.unsubscribe(subscription, function (err) {
-                if (err)
-                    return cb(err);
-
-                removeSubscription(channel, subscription);
-
-                return cb(err, subscription);
-            });
-        },
-
-        _ensureConnectedState: function () {
-            if (this.channelState === this.channelStates.disconnected) {
-                throw new Error('DeviceHive: Channel is not opened, call the .openChannel() method first');
-            }
-            if (this.channelState === this.channelStates.connecting) {
-                throw new Error('DeviceHive: Channel has not been initialized, use .openChannel().done() to run logic after the channel is initialized');
-            }
-        }
-    };
-
-    return DeviceHive;
-}());
-
-/**
- * A callback function which is executed when an operation has been completed
- * @callback noDataCallback
- * @param {DHError} err - An error object if any errors occurred
- */
-
-/**
- * Error object which is passed to the callback if an error occurred
- * @typedef {Object} DHError
- * @property {boolean} error - Error message
- * @property {boolean} http - An object representing a transport mechanism if an error is related ot transport problems.
- */
-
-/**
- * Http request object
- * @typedef {Object} Http
- * @property {function} abort - Aborts current request
- */
-var Subscription = (function () {
-    'use strict';
-
-    /**
-     * Subscription object constructor
-     *
-     * @class
-     * @private
-     */
-    var Subscription = function (deviceIds, names, onMessage) {
-        if (deviceIds && !utils.isArray(deviceIds)) {
-            deviceIds = [deviceIds];
-        }
-
-        if (names && !utils.isArray(names)) {
-            names = [names];
-        }
-
-        this.deviceIds = deviceIds || null;
-        this.names = names || null;
-        this.state = Subscription.states.unsubscribed;
-
-        this._events = new Events();
-
-        this.message(onMessage);
-    };
-
-    /**
-     * @callback subscriptionStateChangedCb
-     * @param {DHError} err - An error object if any errors occurred
-     * @param {State} state - A channel state object
-     */
-
-    /**
-     * @callback messageReceivedCb
-     * @param {Object} message - Received message
-     */
-
-    /**
-     * Adds a callback that will be invoked when the subscription state is changed
-     *
-     * @param {subscriptionStateChangedCb} cb - The callback that handles an event
-     */
-    Subscription.prototype.stateChanged = function (cb) {
-        cb = utils.createCallback(cb);
-
-        var self = this;
-        return this._events.bind('onStateChanged', function (data) {
-            cb.call(self, data);
-        });
-    };
-
-    /**
-     * Adds a callback that will be invoked when a message is received
-     *
-     * @param {messageReceivedCb} cb - The callback that handles an event
-     */
-    Subscription.prototype.message = function (cb) {
-        cb = utils.createCallback(cb);
-        return this._events.bind('onMessage', cb);
-    };
-
-    Subscription.prototype._handleMessage = function (msg) {
-        if(this.state !== Subscription.states.subscribed)
-            return;
-
-        this._events.trigger.apply(this._events, ['onMessage'].concat(utils.toArray(arguments)))
-    };
-
-    Subscription.prototype._changeState = function (newState) {
-        if (this.state === newState) {
-            return false;
-        }
-
-        var oldState = this.state;
-        this.state = newState;
-        this._events.trigger('onStateChanged', { oldState: oldState, newState: newState });
-    };
-
-    Subscription.prototype._setId = function (id) {
-        this.id = id || utils.guid();
-    };
-
-    Subscription.prototype.toJSON = function () {
-        return { deviceIds: this.deviceIds, names: this.names, state: this.state };
-    };
-
-    /**
-     * Subscription states
-     * @readonly
-     * @enum {number}
-     */
-    Subscription.states = {
-        /** subscription is unsubscribed */
-        unsubscribed: 0,
-        /** subscription is being subscribed */
-        subscribing: 1,
-        /** subscription is subscribed */
-        subscribed: 2
-    };
-
-    return Subscription;
-}());
-var LongPollingChannel = (function () {
-    'use strict';
-
-    var setSubKeys = function (sub, subscription, val) {
-            utils.forEach(subscription.deviceIds, function () {
-                sub.deviceIds[this] = val;
-            });
-
-            utils.forEach(subscription.names, function () {
-                sub.names[this] = val;
-            });
-        },
-        addSubscription = function (sub, subscription) {
-            !subscription.deviceIds && ++sub.allDeviceIds;
-            !subscription.names && ++sub.allNames;
-
-            setSubKeys(sub, subscription, true);
-        },
-        removeSubscription = function (sub, subscription) {
-            !subscription.deviceIds && --sub.allDeviceIds;
-            !subscription.names && --sub.allNames;
-
-            setSubKeys(sub, subscription, false);
-        },
-        keysToArray = function (obj) {
-            var keys = [];
-
-            utils.forEach(obj, function (i) {
-                obj[i] && keys.push(i);
-            });
-
-            return keys;
-        },
-        isSubEmpty = function (sub) {
-            return !sub.allDeviceIds && !sub.allNames
-                && keysToArray(sub.deviceIds).length === 0 && keysToArray(sub.names).length === 0;
-        }, arrayToLowerCase = function (arr) {
-            return utils.map(arr, function () {
-                return this.toLowerCase();
-            });
-        };
-
-    // LongPolling channel should maintain 1 global http connection
-    // for all subscriptions, because some environments have a limit of maximum parallel http connections
-    // check http://stackoverflow.com/a/11185668 for more information related to browser
-    var LongPollingChannel = {
-        open: function (cb) {
-            cb = utils.createCallback(cb);
-
-            this._sub = { deviceIds: {}, allDeviceIds: 0, names: {}, allNames: 0 };
-
-            var pollParams = this._pollParams;
-            var self = this;
-            this._lp = new LongPolling(this._hive.serviceUrl, {
-                executePoll: function (params, continuePollCb) {
-                    params.deviceGuids = self._sub.allDeviceIds > 0 ? null : keysToArray(self._sub.deviceIds);
-                    params.names = self._sub.allNames > 0 ? null : keysToArray(self._sub.names);
-
-                    return pollParams.executePoll(params, continuePollCb);
-                },
-                resolveTimestamp: pollParams.resolveTimestamp,
-                onData: function (data) {
-                    var subs = self.subscriptions,
-                        name = pollParams.resolveName(data).toLowerCase(),
-                        deviceId = pollParams.resolveDeviceId(data).toLowerCase();
-
-                    var relevantSubscriptions = utils.filter(subs, function () {
-                        return (this.names === null || utils.inArray(name, arrayToLowerCase(this.names)) > -1)
-                            && (this.deviceIds === null || utils.inArray(deviceId, arrayToLowerCase(this.deviceIds)) > -1);
-                    });
-
-                    utils.forEach(relevantSubscriptions, function () {
-                        var sub = this;
-
-                        // if error is thrown in the inner callback it will not affect the entire longpolling flow
-                        utils.setTimeout(function () {
-                            sub._handleMessage.apply(sub, pollParams.resolveDataArgs(data));
-                        }, 0);
-                    });
-                }
-            });
-
-            return cb(null);
-        },
-
-        close: function (cb) {
-            cb = utils.createCallback(cb);
-
-            this._lp.stopPolling();
-            return cb(null);
-        },
-
-        subscribe: function (subscription, cb) {
-            cb = utils.createCallback(cb);
-            this._lp.stopPolling();
-
-            addSubscription(this._sub, subscription);
-
-            return this._lp.startPolling(cb);
-        },
-
-        unsubscribe: function (subscription, cb) {
-            cb = utils.createCallback(cb);
-
-            removeSubscription(this._sub, subscription);
-
-            this._lp.stopPolling();
-
-            if (isSubEmpty(this._sub)) {
-                return cb(null);
-            }
-
-            return this._lp.startPolling(cb);
-        }
-    };
-
-    return LongPollingChannel;
-}());
-var LongPolling = (function () {
-    'use strict';
-
-    var poll = function (self, timestamp) {
-        var params = { timestamp: timestamp };
-
-        var continuePollingCb = function (err, res) {
-            if (!err) {
-                var lastTimestamp = null;
-                if (res) {
-                    utils.forEach(res, function () {
-                        var newTimestamp = self._poller.resolveTimestamp(this);
-                        if (!lastTimestamp || newTimestamp > lastTimestamp) {
-                            lastTimestamp = newTimestamp;
-                        }
-
-                        self._poller.onData(this);
-                    });
-                }
-
-                poll(self, lastTimestamp || timestamp);
-            } else {
-                if (self._polling) {
-                    // Polling unexpectedly stopped probably connection was lost. Try reconnect in 1 second
-                    utils.setTimeout(function () {
-                        poll(self, timestamp);
-                    }, 1000);
-                }
-            }
-        };
-
-        self._request = self._polling && self._poller.executePoll(params, continuePollingCb);
-    };
-
-    var LongPolling = function (serviceUrl, poller) {
-        this.serviceUrl = serviceUrl;
-        this._poller = poller
-    };
-
-    LongPolling.prototype = {
-        startPolling: function (cb) {
-            cb = utils.createCallback(cb);
-
-            this._polling = true;
-
-            var self = this;
-            return this._request = restApi.info(this.serviceUrl, function (err, res) {
-                if (err){
-                    var wasPolling = self._polling;
-                    self._polling = false;
-                    return cb(wasPolling ? err : null);
-                }
-
-                poll(self, res.serverTimestamp);
-                return cb(null);
-            });
-        },
-
-        stopPolling: function () {
-            this._polling = false;
-            this._request && this._request.abort();
-        }
-    };
-
-    return LongPolling;
-}());
 var WebSocketClientApi = (function () {
     'use strict';
 
@@ -1656,6 +1148,534 @@ var WebSocketDeviceApi = (function () {
     };
 
     return WebSocketDeviceApi;
+}());
+var Subscription = (function () {
+    'use strict';
+
+    /**
+     * Subscription object constructor
+     *
+     * @class
+     * @private
+     */
+    var Subscription = function (deviceIds, names, onMessage) {
+        if (deviceIds && !utils.isArray(deviceIds)) {
+            deviceIds = [deviceIds];
+        }
+
+        if (names && !utils.isArray(names)) {
+            names = [names];
+        }
+
+        this.deviceIds = deviceIds || null;
+        this.names = names || null;
+        this.state = Subscription.states.unsubscribed;
+
+        this._events = new Events();
+
+        this.message(onMessage);
+    };
+
+    /**
+     * @callback subscriptionStateChangedCb
+     * @param {DHError} err - An error object if any errors occurred
+     * @param {State} state - A channel state object
+     */
+
+    /**
+     * @callback messageReceivedCb
+     * @param {Object} message - Received message
+     */
+
+    /**
+     * Adds a callback that will be invoked when the subscription state is changed
+     *
+     * @param {subscriptionStateChangedCb} cb - The callback that handles an event
+     */
+    Subscription.prototype.stateChanged = function (cb) {
+        cb = utils.createCallback(cb);
+
+        var self = this;
+        return this._events.bind('onStateChanged', function (data) {
+            cb.call(self, data);
+        });
+    };
+
+    /**
+     * Adds a callback that will be invoked when a message is received
+     *
+     * @param {messageReceivedCb} cb - The callback that handles an event
+     */
+    Subscription.prototype.message = function (cb) {
+        cb = utils.createCallback(cb);
+        return this._events.bind('onMessage', cb);
+    };
+
+    Subscription.prototype._handleMessage = function (msg) {
+        if(this.state !== Subscription.states.subscribed)
+            return;
+
+        this._events.trigger.apply(this._events, ['onMessage'].concat(utils.toArray(arguments)))
+    };
+
+    Subscription.prototype._changeState = function (newState) {
+        if (this.state === newState) {
+            return false;
+        }
+
+        var oldState = this.state;
+        this.state = newState;
+        this._events.trigger('onStateChanged', { oldState: oldState, newState: newState });
+    };
+
+    Subscription.prototype._setId = function (id) {
+        this.id = id || utils.guid();
+    };
+
+    Subscription.prototype.toJSON = function () {
+        return { deviceIds: this.deviceIds, names: this.names, state: this.state };
+    };
+
+    /**
+     * Subscription states
+     * @readonly
+     * @enum {number}
+     */
+    Subscription.states = {
+        /** subscription is unsubscribed */
+        unsubscribed: 0,
+        /** subscription is being subscribed */
+        subscribing: 1,
+        /** subscription is subscribed */
+        subscribed: 2
+    };
+
+    return Subscription;
+}());
+var DeviceHive = (function () {
+    'use strict';
+
+    var changeChannelState = function (self, newState, oldState) {
+            oldState = oldState || self.channelState;
+            if (oldState === self.channelState) {
+                self.channelState = newState;
+                self._events = self._events || new Events();
+                self._events.trigger('onChannelStateChanged', { oldState: oldState, newState: newState });
+                return true;
+            }
+            return false;
+        },
+        findSubscription = function (channel, id) {
+            return utils.find(channel.subscriptions, function () {
+                return this.id === id;
+            });
+        },
+        removeSubscription = function (channel, subscription) {
+            var index = channel.subscriptions.indexOf(subscription);
+            channel.subscriptions.splice(index, 1);
+            subscription._changeState(Subscription.states.unsubscribed);
+        };
+
+    /**
+     * DeviceHive channel states
+     * @readonly
+     * @enum {number}
+     */
+    var channelStates = {
+        /** channel is not connected */
+        disconnected: 0,
+        /** channel is being connected */
+        connecting: 1,
+        /** channel is connected */
+        connected: 2
+    };
+
+    /**
+     * @callback openChannelCb
+     * @param {DHError} err - An error object if any errors occurred
+     * @param {Object} channel - A name of the opened channel
+     */
+
+    /**
+     * @typedef {Object} State
+     * @property {Number} oldState - previous state
+     * @property {Number} newState - current state
+     */
+
+    /**
+     * @callback channelStateChangedCb
+     * @param {DHError} err - An error object if any errors occurred
+     * @param {State} state - A channel state object
+     */
+
+    /**
+     * @callback subscribeCb
+     * @param {DHError} err - An error object if any errors occurred
+     * @param {Subscription} subscription - added subscription object
+     */
+
+    /**
+     * @callback unsubscribeCb
+     * @param {DHError} err - An error object if any errors occurred
+     * @param {Subscription} subscription - removed subscription object
+     */
+
+    /**
+     * @typedef {Object} SubscribeParameters
+     * @property {function} onMessage - a callback that will be invoked when a message is received
+     * @property {(Array | String)} deviceIds - single device identifier, array of identifiers or null (subscribe to all devices)
+     * @property {(Array | String)} names - notification name, array of notifications or null (subscribe to all notifications)
+     */
+
+    /**
+     * Core DeviceHive class
+     */
+    var DeviceHive = function (){
+        /**
+         * Current channel state
+         */
+        this.channelState = channelStates.disconnected;
+        this._events = new Events();
+    };
+
+    DeviceHive.prototype = {
+        channelStates: channelStates,
+
+        /**
+         * Opens the first compatible communication channel to the server
+         *
+         * @param {openChannelCb} cb - The callback that handles the response
+         * @param {(Array | String)} [channels = null] - Channel names to open. Default supported channels: 'websocket', 'longpolling'
+         */
+        openChannel: function (cb, channels) {
+            cb = utils.createCallback(cb);
+
+            if (!changeChannelState(this, this.channelStates.connecting, this.channelStates.disconnected)) {
+                cb(null);
+                return;
+            }
+
+            var self = this;
+
+            function manageInfo(info) {
+                self.serverInfo = info;
+
+                if (!channels) {
+                    channels = [];
+                    utils.forEach(self._channels, function (t) {
+                        channels.push(t);
+                    });
+                }
+                else if (!utils.isArray(channels)) {
+                    channels = [channels];
+                }
+
+                var emptyChannel = true;
+
+                (function checkChannel(channels) {
+                    utils.forEach(channels, function (ind) { // enumerate all channels in order
+                        var channel = this;
+                        if (self._channels[channel]) {
+                            self.channel = new self._channels[channel](self);
+                            self.channel.open(function (err) {
+                                if (err) {
+                                    var channelsToCheck = channels.slice(++ind);
+                                    if (!channelsToCheck.length)
+                                        return cb(utils.errorMessage('Cannot open any of the specified channels'));
+                                    checkChannel(channelsToCheck);
+                                } else {
+                                    changeChannelState(self, self.channelStates.connected);
+                                    cb(null, channel);
+                                }
+                            });
+
+                            return emptyChannel = false;
+                        }
+                    });
+                })(channels);
+
+                emptyChannel && cb(utils.errorMessage('None of the specified channels are supported'));
+            }
+
+            if (this.serverInfo) {
+                manageInfo(this.serverInfo);
+            } else {
+                restApi.info(this.serviceUrl, function (err, res) {
+                    if (!err) {
+                        manageInfo(res);
+                    } else {
+                        changeChannelState(self, self.channelStates.disconnected);
+                        cb(err, res);
+                    }
+                });
+            }
+        },
+
+        /**
+         * Closes the communications channel to the server
+         *
+         * @param {noDataCallback} cb - The callback that handles the response
+         */
+        closeChannel: function (cb) {
+            cb = utils.createCallback(cb);
+
+            if (this.channelState === this.channelStates.disconnected)
+                return cb(null);
+
+            var self = this;
+            if (this.channel) {
+                this.channel.close(function (err, res) {
+                    if (err) {
+                        return cb(err, res);
+                    }
+
+                    utils.forEach(utils.toArray(self.channel.subscriptions), function () {
+                        removeSubscription(self.channel, this);
+                    });
+
+                    self.channel = null;
+
+                    changeChannelState(self, self.channelStates.disconnected);
+                    return cb(null);
+                });
+            }
+        },
+
+        /**
+         * Adds a callback that will be invoked when the communication channel state is changed
+         *
+         * @param {channelStateChangedCb} cb - The callback that handles an event
+         */
+        channelStateChanged: function (cb) {
+            cb = utils.createCallback(cb);
+
+            var self = this;
+            return this._events.bind('onChannelStateChanged', function (data) {
+                cb.call(self, data);
+            });
+        },
+
+
+        /**
+         * Subscribes to messages and return a subscription object
+         *
+         * @param {subscribeCb} cb - The callback that handles the response
+         * @param {SubscribeParameters} [params = null] - Subscription parameters
+         * @return {Subscription} - Added subscription object
+         */
+        subscribe: function (cb, params) {
+            this._ensureConnectedState();
+            cb = utils.createCallback(cb);
+            params = params || {};
+
+            var channel = this.channel;
+            var subscription = new Subscription(params.deviceIds, params.names, params.onMessage);
+            channel.subscriptions.push(subscription);
+            subscription._changeState(Subscription.states.subscribing);
+
+            channel.subscribe(subscription, function (err, id) {
+                if (err) {
+                    removeSubscription(channel, subscription);
+                    return cb(err);
+                }
+
+                subscription._setId(id);
+                subscription._changeState(Subscription.states.subscribed);
+
+                return cb(err, subscription);
+            });
+
+            return subscription;
+        },
+
+        /**
+         * Remove subscription to messages
+         *
+         * @param {(String | Subscription)} subscriptionOrId - Identifier of the subscription or subscription object returned by subscribe method
+         * @param {unsubscribeCb} cb - The callback that handles the response
+         * @return {Subscription} - Added subscription object
+         * @throws Will throw an error if subscriptionId was not found
+         */
+        unsubscribe: function (subscriptionOrId, cb) {
+            this._ensureConnectedState();
+            cb = utils.createCallback(cb);
+            var channel = this.channel;
+
+            if (!subscriptionOrId)
+                throw new Error('Subscription must be defined. To unsubscribe from all subscriptions just close the channel');
+
+            var subscription = subscriptionOrId;
+
+            if (!(subscriptionOrId instanceof Subscription)) {
+                subscription = findSubscription(channel, subscriptionOrId);
+
+                if (!subscription)
+                    return cb(utils.errorMessage('Subscription with id ' + subscriptionOrId + ' was not found'));
+            }
+
+            if (subscription.state === Subscription.states.unsubscribed) {
+                return cb(null);
+            }
+
+            return channel.unsubscribe(subscription, function (err) {
+                if (err)
+                    return cb(err);
+
+                removeSubscription(channel, subscription);
+
+                return cb(err, subscription);
+            });
+        },
+
+        _ensureConnectedState: function () {
+            if (this.channelState === this.channelStates.disconnected) {
+                throw new Error('DeviceHive: Channel is not opened, call the .openChannel() method first');
+            }
+            if (this.channelState === this.channelStates.connecting) {
+                throw new Error('DeviceHive: Channel has not been initialized, use .openChannel().done() to run logic after the channel is initialized');
+            }
+        }
+    };
+
+    return DeviceHive;
+}());
+
+/**
+ * A callback function which is executed when an operation has been completed
+ * @callback noDataCallback
+ * @param {DHError} err - An error object if any errors occurred
+ */
+
+/**
+ * Error object which is passed to the callback if an error occurred
+ * @typedef {Object} DHError
+ * @property {boolean} error - Error message
+ * @property {boolean} http - An object representing a transport mechanism if an error is related ot transport problems.
+ */
+
+/**
+ * Http request object
+ * @typedef {Object} Http
+ * @property {function} abort - Aborts current request
+ */
+
+var LongPollingChannel = (function () {
+    'use strict';
+
+    var setSubKeys = function (sub, subscription, val) {
+            utils.forEach(subscription.deviceIds, function () {
+                sub.deviceIds[this] = val;
+            });
+
+            utils.forEach(subscription.names, function () {
+                sub.names[this] = val;
+            });
+        },
+        addSubscription = function (sub, subscription) {
+            !subscription.deviceIds && ++sub.allDeviceIds;
+            !subscription.names && ++sub.allNames;
+
+            setSubKeys(sub, subscription, true);
+        },
+        removeSubscription = function (sub, subscription) {
+            !subscription.deviceIds && --sub.allDeviceIds;
+            !subscription.names && --sub.allNames;
+
+            setSubKeys(sub, subscription, false);
+        },
+        keysToArray = function (obj) {
+            var keys = [];
+
+            utils.forEach(obj, function (i) {
+                obj[i] && keys.push(i);
+            });
+
+            return keys;
+        },
+        isSubEmpty = function (sub) {
+            return !sub.allDeviceIds && !sub.allNames
+                && keysToArray(sub.deviceIds).length === 0 && keysToArray(sub.names).length === 0;
+        }, arrayToLowerCase = function (arr) {
+            return utils.map(arr, function () {
+                return this.toLowerCase();
+            });
+        };
+
+    // LongPolling channel should maintain 1 global http connection
+    // for all subscriptions, because some environments have a limit of maximum parallel http connections
+    // check http://stackoverflow.com/a/11185668 for more information related to browser
+    var LongPollingChannel = {
+        open: function (cb) {
+            cb = utils.createCallback(cb);
+
+            this._sub = { deviceIds: {}, allDeviceIds: 0, names: {}, allNames: 0 };
+
+            var pollParams = this._pollParams;
+            var self = this;
+            this._lp = new LongPolling(this._hive.serviceUrl, {
+                executePoll: function (params, continuePollCb) {
+                    params.deviceGuids = self._sub.allDeviceIds > 0 ? null : keysToArray(self._sub.deviceIds);
+                    params.names = self._sub.allNames > 0 ? null : keysToArray(self._sub.names);
+
+                    return pollParams.executePoll(params, continuePollCb);
+                },
+                resolveTimestamp: pollParams.resolveTimestamp,
+                onData: function (data) {
+                    var subs = self.subscriptions,
+                        name = pollParams.resolveName(data).toLowerCase(),
+                        deviceId = pollParams.resolveDeviceId(data).toLowerCase();
+
+                    var relevantSubscriptions = utils.filter(subs, function () {
+                        return (this.names === null || utils.inArray(name, arrayToLowerCase(this.names)) > -1)
+                            && (this.deviceIds === null || utils.inArray(deviceId, arrayToLowerCase(this.deviceIds)) > -1);
+                    });
+
+                    utils.forEach(relevantSubscriptions, function () {
+                        var sub = this;
+
+                        // if error is thrown in the inner callback it will not affect the entire longpolling flow
+                        utils.setTimeout(function () {
+                            sub._handleMessage.apply(sub, pollParams.resolveDataArgs(data));
+                        }, 0);
+                    });
+                }
+            });
+
+            return cb(null);
+        },
+
+        close: function (cb) {
+            cb = utils.createCallback(cb);
+
+            this._lp.stopPolling();
+            return cb(null);
+        },
+
+        subscribe: function (subscription, cb) {
+            cb = utils.createCallback(cb);
+            this._lp.stopPolling();
+
+            addSubscription(this._sub, subscription);
+
+            return this._lp.startPolling(cb);
+        },
+
+        unsubscribe: function (subscription, cb) {
+            cb = utils.createCallback(cb);
+
+            removeSubscription(this._sub, subscription);
+
+            this._lp.stopPolling();
+
+            if (isSubEmpty(this._sub)) {
+                return cb(null);
+            }
+
+            return this._lp.startPolling(cb);
+        }
+    };
+
+    return LongPollingChannel;
 }());
 var LongPollingClientChannel = (function () {
     'use strict';
@@ -2048,7 +2068,7 @@ var DHClient = (function () {
         }
     };
 
-    DHClient.prototype = DeviceHive;
+    DHClient.prototype = new DeviceHive();
     DHClient.constructor = DHClient;
 
 
@@ -2394,7 +2414,7 @@ var DHClient = (function () {
      * DHClient channel states
      * @borrows DeviceHive#channelStates
      */
-    DHClient.channelStates = DeviceHive.channelStates;
+    DHClient.channelStates = DHClient.prototype.channelStates;
 
     /**
      * DHClient subscription states
@@ -2404,6 +2424,7 @@ var DHClient = (function () {
 
     return DHClient;
 }());
+
 var DHDevice = (function () {
     'use strict';
 
@@ -2436,7 +2457,7 @@ var DHDevice = (function () {
         }
     };
 
-    DHDevice.prototype = DeviceHive;
+    DHDevice.prototype = new DeviceHive();
     DHDevice.constructor = DHDevice;
 
     /**
@@ -2552,7 +2573,7 @@ var DHDevice = (function () {
      * @param {Object} device - Current device information
      */
 
-    var oldSubscribe = DeviceHive.subscribe;
+    var oldSubscribe = DHDevice.prototype.subscribe;
     /**
      * Subscribes to device commands and returns a subscription object
      * Use subscription object to bind to a 'new command received' event
@@ -2612,7 +2633,7 @@ var DHDevice = (function () {
      * DHDevice channel states
      * @borrows DeviceHive#channelStates
      */
-    DHDevice.channelStates = DeviceHive.channelStates;
+    DHDevice.channelStates = DHDevice.prototype.channelStates;
 
     /**
      * DHDevice subscription states
@@ -2622,10 +2643,11 @@ var DHDevice = (function () {
 
     return DHDevice;
 }());
+
 var Main = (function () {
     return {
         Device: DHDevice,
-        Client: DHCLient
+        Client: DHClient
     };
 })();
 
