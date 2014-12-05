@@ -39,5 +39,8 @@
     "ws": "^0.4.25"
   },
   "license": "MIT",
-  "main": "build/node/devicehive.js"
+  "main": "build/node/devicehive.js",
+  "scripts": {
+    "test": "grunt test"
+  }
 }
