@@ -1676,6 +1676,7 @@ var LongPollingChannel = (function () {
 
     return LongPollingChannel;
 }());
+
 var LongPollingClientChannel = (function () {
     'use strict';
 

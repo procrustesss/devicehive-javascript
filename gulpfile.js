@@ -203,7 +203,7 @@ gulp.task('lint', function () {
 
 
 gulp.task('watch', function () {
-    gulp.watch('./src/**', ['build']);
+    gulp.watch('./src/**', ['build', 'compress']);
 });
 
 gulp.task('dev', ['build', 'watch']);

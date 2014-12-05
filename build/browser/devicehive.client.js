@@ -420,7 +420,7 @@ var http = (function () {
 
                     var cbErrorMessage = utils.serverErrorMessage(xhr.responseText, responseObj);
                     var err = {
-                        error: errorMessage,
+                        error: cbErrorMessage,
                         request: xhr
                     };
 
@@ -1381,6 +1381,7 @@ var LongPollingChannel = (function () {
 
     return LongPollingChannel;
 }());
+
 var LongPolling = (function () {
     'use strict';
 
