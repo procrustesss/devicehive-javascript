@@ -31,7 +31,7 @@
   },
   "browser": "build/browser/devicehive.client.js",
   "dependencies": {
-    "ws": "^0.4.25"
+    "ws": "^0.6.0"
   },
   "license": "MIT",
   "main": "build/node/devicehive.js"
