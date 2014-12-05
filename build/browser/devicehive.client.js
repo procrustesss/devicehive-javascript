@@ -860,8 +860,7 @@ var DeviceHive = (function () {
             oldState = oldState || self.channelState;
             if (oldState === self.channelState) {
                 self.channelState = newState;
-                self._events = self._events || new Events();
-                self._events.trigger('onChannelStateChanged', { oldState: oldState, newState: newState });
+                self._events.trigger('channel.state.changed', { oldState: oldState, newState: newState });
                 return true;
             }
             return false;
@@ -1051,7 +1050,7 @@ var DeviceHive = (function () {
             cb = utils.createCallback(cb);
 
             var self = this;
-            return this._events.bind('onChannelStateChanged', function (data) {
+            return this._events.bind('channel.state.changed', function (data) {
                 cb.call(self, data);
             });
         },
@@ -1207,7 +1206,7 @@ var Subscription = (function () {
         cb = utils.createCallback(cb);
 
         var self = this;
-        return this._events.bind('onStateChanged', function (data) {
+        return this._events.bind('state.changed', function (data) {
             cb.call(self, data);
         });
     };
@@ -1219,14 +1218,14 @@ var Subscription = (function () {
      */
     Subscription.prototype.message = function (cb) {
         cb = utils.createCallback(cb);
-        return this._events.bind('onMessage', cb);
+        return this._events.bind('message', cb);
     };
 
     Subscription.prototype._handleMessage = function (msg) {
         if(this.state !== Subscription.states.subscribed)
             return;
 
-        this._events.trigger.apply(this._events, ['onMessage'].concat(utils.toArray(arguments)))
+        this._events.trigger.apply(this._events, ['message'].concat(utils.toArray(arguments)))
     };
 
     Subscription.prototype._changeState = function (newState) {
@@ -1236,7 +1235,7 @@ var Subscription = (function () {
 
         var oldState = this.state;
         this.state = newState;
-        this._events.trigger('onStateChanged', { oldState: oldState, newState: newState });
+        this._events.trigger('state.changed', { oldState: oldState, newState: newState });
     };
 
     Subscription.prototype._setId = function (id) {
@@ -1263,6 +1262,7 @@ var Subscription = (function () {
 
     return Subscription;
 }());
+
 var LongPollingChannel = (function () {
     'use strict';
 
@@ -1568,15 +1568,15 @@ var WebSocketClientApi = (function () {
         this._transport = new WebSocketTransport();
         this._transport.message(function (response) {
             if (response.action == 'command/insert' && response.command && response.command.id) {
-                events.trigger('onCommandInsert', response);
+                events.trigger('command.insert', response);
             }
 
             if (response.action == 'command/update') {
-                events.trigger('onCommandUpdate', response);
+                events.trigger('command.update', response);
             }
 
             if (response.action == 'notification/insert' && response.deviceGuid && response.notification) {
-                events.trigger('onNotificationInsert', response);
+                events.trigger('notification.insert', response);
             }
         });
     };
@@ -1627,6 +1627,7 @@ var WebSocketClientApi = (function () {
 
     return WebSocketClientApi;
 }());
+
 var LongPollingClientChannel = (function () {
     'use strict';
 
@@ -1746,7 +1747,7 @@ var WebSocketClientChannel = (function () {
             var self = this;
             this._wsApi = new WebSocketClientApi();
 
-            self._wsApi._events.bind('onCommandUpdate', function (msg) {
+            self._wsApi._events.bind('command.update', function (msg) {
                 var command = msg.command;
                 var commandRequest = self._commandRequests[command.id];
                 if (commandRequest) {
@@ -1757,7 +1758,7 @@ var WebSocketClientChannel = (function () {
                 }
             });
 
-            self._wsApi._events.bind('onNotificationInsert', function (notif) {
+            self._wsApi._events.bind('notification.insert', function (notif) {
                 var subscription = utils.find(self.subscriptions, function () {
                     return this.id === notif.subscriptionId;
                 });
@@ -1842,6 +1843,7 @@ var WebSocketClientChannel = (function () {
 
     return WebSocketClientChannel;
 }());
+
 var DHClient = (function () {
     'use strict';
 

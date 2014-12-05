@@ -7,7 +7,7 @@ var WebSocketDeviceApi = (function () {
         this._transport = new WebSocketTransport();
         this._transport.message(function (response) {
             if (response.action == 'command/insert' && response.command && response.command.id) {
-                events.trigger('onCommandInsert', response);
+                events.trigger('command.insert', response);
             }
         });
     };

@@ -25,7 +25,7 @@ var WebSocketDeviceChannel = (function () {
                 ? new WebSocketDeviceApi()
                 : new WebSocketClientApi();
 
-            this._wsApi._events.bind('onCommandInsert', function (cmd) {
+            this._wsApi._events.bind('command.insert', function (cmd) {
                 var subscriptionsToHandle = self.subscriptions;
 
                 if(!self.compatibilityMode){

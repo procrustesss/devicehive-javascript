@@ -7,15 +7,15 @@ var WebSocketClientApi = (function () {
         this._transport = new WebSocketTransport();
         this._transport.message(function (response) {
             if (response.action == 'command/insert' && response.command && response.command.id) {
-                events.trigger('onCommandInsert', response);
+                events.trigger('command.insert', response);
             }
 
             if (response.action == 'command/update') {
-                events.trigger('onCommandUpdate', response);
+                events.trigger('command.update', response);
             }
 
             if (response.action == 'notification/insert' && response.deviceGuid && response.notification) {
-                events.trigger('onNotificationInsert', response);
+                events.trigger('notification.insert', response);
             }
         });
     };
