@@ -599,7 +599,6 @@ var LongPolling = (function () {
             var self = this;
             var request = this._request = restApi.info(this.serviceUrl, function (err, res) {
                 if (err) {
-                    self._polling = false;
                     return cb(request.abortedManually ? null : err);
                 }
 
