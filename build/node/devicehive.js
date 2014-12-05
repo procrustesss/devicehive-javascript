@@ -240,7 +240,7 @@ var utils = (function () {
                         str += '&';
                     }
                     val = obj[key];
-                    val = val === null ? '' : val;
+                    val = val === null || val === void 0 ? '' : val;
                     str += encodeURIComponent(key) + '=' + encodeURIComponent(val);
                 }
             }
@@ -1981,7 +1981,7 @@ var WebSocketDeviceChannel = (function () {
                     subscriptionsToHandle = utils.find(self.subscriptions, function () {
                         return this.id === cmd.subscriptionId;
                     });
-                    subscriptionsToHandle = [subscriptionsToHandle];
+                    subscriptionsToHandle = subscriptionsToHandle && [subscriptionsToHandle];
                 }
 
                 utils.forEach(subscriptionsToHandle, function(){

@@ -32,7 +32,7 @@ var WebSocketDeviceChannel = (function () {
                     subscriptionsToHandle = utils.find(self.subscriptions, function () {
                         return this.id === cmd.subscriptionId;
                     });
-                    subscriptionsToHandle = [subscriptionsToHandle];
+                    subscriptionsToHandle = subscriptionsToHandle && [subscriptionsToHandle];
                 }
 
                 utils.forEach(subscriptionsToHandle, function(){

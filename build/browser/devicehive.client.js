@@ -240,7 +240,7 @@ var utils = (function () {
                         str += '&';
                     }
                     val = obj[key];
-                    val = val === null ? '' : val;
+                    val = val === null || val === void 0 ? '' : val;
                     str += encodeURIComponent(key) + '=' + encodeURIComponent(val);
                 }
             }
