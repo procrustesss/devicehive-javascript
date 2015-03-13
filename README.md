@@ -100,7 +100,7 @@ After creating a new instance you will be able to get relevant information from 
 
 ```js
 // Use DHClient library to get information about devices registered in the cloud
-dhClient.getDevices(function(err, devices){
+dhClient.getDevices(null, function(err, devices){
     if(!err)
         doWork(devices);
 });
