@@ -4,7 +4,8 @@ var gulp = require('gulp'),
     util = require('gulp-util'),
     jshint = require('gulp-jshint'),
     uglify = require('gulp-uglify'),
-    rename = require("gulp-rename");
+    rename = require("gulp-rename"),
+    mocha = require('gulp-mocha');
 
 var buildConfig = {
     browser: {
@@ -111,6 +112,11 @@ gulp.task('build', function () {
 
 gulp.task('buildall', buildAll);
 
+gulp.task('test', function () { 
+    return gulp.src('./test/*.js', {read: false})
+        .pipe(mocha({ }));
+});
+
 gulp.task('compress', function () {
     return gulp.src('./build/browser/**/*[!.min].js')
         .pipe(uglify())
@@ -175,7 +181,7 @@ gulp.task('lint', function () {
 
 
 gulp.task('watch', function () {
-    gulp.watch('./src/**', ['build']);
+    gulp.watch('./src/**', ['build', 'test']);
 });
 
 gulp.task('dev', ['build', 'watch']);

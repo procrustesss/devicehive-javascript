@@ -257,6 +257,11 @@ dhDevice.openChannel(function(err) {
 dhDevice.closeChannel();
 ```
 
+##CONTRIBUTING
+
+Please run `gulp test` before committing to ensure your changes don't affect existing features.
+Editor preferences are available in the editor config for easy use in common text editors. Read more and download plugins at http://editorconfig.org.
+
 ##TODO
 
 * Node.js support
