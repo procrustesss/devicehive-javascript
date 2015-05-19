@@ -10,7 +10,7 @@ var utils = (function () {
         },
 
         isFunction: function (val) {
-            return val && Object.prototype.toString.call(val) === '[object Function]';
+            return Object.prototype.toString.call(val) === '[object Function]';
         },
 
         isArray: Array.isArray || function (obj) {
@@ -18,7 +18,9 @@ var utils = (function () {
         },
 
         isArrayLike: function (arr) {
-            return arr && arr.length >= 0 && arr.length === Math.floor(arr.length)
+            return arr != null                    
+                    && arr.length >= 0
+                    && arr.length === Math.floor(arr.length);
         },
 
         isString: function (obj) {
@@ -26,7 +28,7 @@ var utils = (function () {
         },
 
         isAccessKey: function (val) {
-            return val.length === 44 && new RegExp('[A-Za-z0-9+/=]').test(val);
+            return val != null && val.length === 44 && new RegExp('[A-Za-z0-9+/=]').test(val);
         },
 
         inArray: function (val, arr, ind) {
