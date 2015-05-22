@@ -3,3 +3,33 @@ node_js:
   - "0.12"
   - "0.11"
   - "0.10"
+
+cache:
+  directories:
+    - node_modules
+
+branches:
+  only:
+    - master
+    - develop
+    - 1.2.x
+
+after_success: "npm run build"
+
+before_deploy:
+  - "zip devicehive.browser.client.zip build/browser/devicehive.client.js build/browser/devicehive.client.min.js"
+  - "zip devicehive.browser.client.jquery.zip build/browser/devicehive.client.jquery.js build/browser/devicehive.client.jquery.min.js"
+  - "zip devicehive.browser.device.zip build/browser/devicehive.device.js build/browser/devicehive.device.min.js"
+  - "zip devicehive.browser.device.jquery.zip build/browser/devicehive.device.jquery.js build/browser/devicehive.device.jquery.min.js"
+
+deploy:
+  provider: releases
+  api_key:
+    secure: ar/JXybBxhGNNqjf8VTv2aVCod7u9m2D1GCG6yvbIXAYcdr8efeIWA2jYpLL5wZ/AU6d679ZtzlcpVdu88bm0uILMCJ+4oYPCEGVtbzjAYBEBqvqxyLlZwuG3fqYGofbhoE3p3ShNkDZDZNOYbUoVzB5sXNh8B680dcF+SYwqjo=
+  file:
+    - "devicehive.browser.client.zip"
+    - "devicehive.browser.client.jquery.zip"
+    - "devicehive.browser.device.zip"
+    - "devicehive.browser.device.jquery.zip"
+  on:
+    tags: true

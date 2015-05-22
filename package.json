@@ -41,6 +41,7 @@
   "license": "MIT",
   "main": "build/node/devicehive.js",
   "scripts": {
-    "test": "gulp test"
+    "test": "gulp test",
+    "build": "gulp"
   }
 }
