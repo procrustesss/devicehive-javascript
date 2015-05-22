@@ -3,7 +3,8 @@ var gulp = require('gulp'),
     concat = require('gulp-concat'),
     util = require('gulp-util'),
     uglify = require('gulp-uglify'),
-    rename = require("gulp-rename");
+    rename = require("gulp-rename"),
+    mocha = require('gulp-mocha');
 
 var config = {
     "browser": {
@@ -149,6 +150,11 @@ for (var platform in config) {
 
 // create main build task which depends on all platform tasks
 gulp.task('build', platformTaskNames);
+gulp.task('test', function () {
+    return gulp.src('./test/*.js', {read: false})
+        .pipe(mocha({ }));
+});
+
 gulp.task('compress', ['build.browser'], function () {
     return gulp.src('./build/browser/**/*[!.min].js')
         .pipe(uglify())
@@ -158,7 +164,7 @@ gulp.task('compress', ['build.browser'], function () {
         .pipe(gulp.dest('./build/browser'));
 });
 
-gulp.task('default', ['build', 'compress']);
+gulp.task('default', ['build', 'test', 'compress']);
 
 gulp.task('watch', function () {
     return gulp.watch('./src/**', ['default']);

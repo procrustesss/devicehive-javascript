@@ -100,7 +100,7 @@ After creating a new instance you will be able to get relevant information from 
 
 ```js
 // Use DHClient library to get information about devices registered in the cloud
-dhClient.getDevices(function(err, devices){
+dhClient.getDevices(null, function(err, devices){
     if(!err)
         doWork(devices);
 });
@@ -256,6 +256,11 @@ dhDevice.openChannel(function(err) {
 // Close the channel for DHDevice instance
 dhDevice.closeChannel();
 ```
+
+##CONTRIBUTING
+
+Please run `gulp test` before committing to ensure your changes don't affect existing features.
+Editor preferences are available in the editor config for easy use in common text editors. Read more and download plugins at http://editorconfig.org.
 
 ##TODO
 
