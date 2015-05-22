@@ -10,7 +10,7 @@ var DHDevice = (function () {
      *
      * @class
      * @global
-     * @augments DeviceHive
+     * @mixes module:Core~DeviceHive
      * @param {String} serviceUrl - DeviceHive cloud API url
      * @param {String} deviceId - Device unique identifier
      * @param {String} accessKeyOrDeviceKey - Access key or device key (device key is deprecated) used for auth
@@ -34,16 +34,17 @@ var DHDevice = (function () {
     DHDevice.constructor = DHDevice;
 
     /**
-     * @callback getDeviceCb
-     * @param {DHError} err - An error object if any errors occurred
+     * @callback DHDevice~getDeviceCb
+     * @param {module:Core~module:Core~DHError} err - An error object if any errors occurred
      * @param {Object} device - Current device information
      */
 
     /**
      * Gets information about the current device
      *
-     * @param {getDeviceCb} cb - The callback that handles the response
-     * @returns {Http} - Current http request
+     * @memberof DHDevice
+     * @param {DHDevice~getDeviceCb} cb - The callback that handles the response
+     * @returns {module:Core~Http} - Current module:Core~Http request
      */
     DHDevice.prototype.getDevice = function (cb) {
         cb = utils.createCallback(cb);
@@ -55,9 +56,10 @@ var DHDevice = (function () {
      * Registers a device in the DeviceHive network with the current device id
      * device key will be implicitly added if specified as an authentication parameter
      *
+     * @memberof DHDevice
      * @param {Object} device - Device parameters
-     * @param {noDataCallback} cb - The callback that handles the response
-     * @returns {Http} - Current http request
+     * @param {module:Core~noDataCallback} cb - The callback that handles the response
+     * @returns {module:Core~Http} - Current module:Core~Http request
      */
     DHDevice.prototype.registerDevice = function (device, cb) {
         cb = utils.createCallback(cb);
@@ -77,9 +79,10 @@ var DHDevice = (function () {
     /**
      * Updates a device in the DeviceHive network with the current device id
      *
+     * @memberof DHDevice
      * @param {Object} device - Device parameters
-     * @param {noDataCallback} cb - The callback that handles the response
-     * @returns {Http} - Current http request
+     * @param {module:Core~noDataCallback} cb - The callback that handles the response
+     * @returns {module:Core~Http} - Current module:Core~Http request
      */
     DHDevice.prototype.updateDevice = function (device, cb) {
         cb = utils.createCallback(cb);
@@ -90,10 +93,11 @@ var DHDevice = (function () {
     /**
      * Sends new notification to the client
      *
+     * @memberof DHDevice
      * @param {String} notification - Notification name
      * @param {Object} params - Notification parameters
-     * @param {noDataCallback} cb - The callback that handles the response
-     * @returns {Http} - Current http request
+     * @param {module:Core~noDataCallback} cb - The callback that handles the response
+     * @returns {module:Core~Http} - Current module:Core~Http request
      */
     DHDevice.prototype.sendNotification = function (notification, params, cb) {
         cb = utils.createCallback(cb);
@@ -107,42 +111,42 @@ var DHDevice = (function () {
 
 
     /**
-     * @callback notificationSubscribeCb
-     * @param {DHError} err - An error object if any errors occurred
-     * @param {NotificationSubscription} subscription - added subscription object
+     * @callback DHDevice~notificationSubscribeCb
+     * @param {module:Core~module:Core~DHError} err - An error object if any errors occurred
+     * @param {DHDevice~NotificationSubscription} subscription - added subscription object
      */
 
     /**
-     * @typedef {Object} NotificationSubscribeParameters
+     * @typedef {Object} DHDevice~NotificationSubscribeParameters
      * @property {function} onMessage - initial callback that will be invoked when a command is received
      * @property {(Array | String)} names - notification name, array of notifications or null (subscribe to all notifications)
      */
 
     /**
-     * @typedef {Subscription} NotificationSubscription
-     * @property {notificationReceivedCb} cb - a callback that will be invoked when a command is received
+     * @typedef {Subscription} DHDevice~NotificationSubscription
+     * @property {DHDevice~notificationReceivedCb} cb - a callback that will be invoked when a command is received
      */
 
     /**
-     * @callback notificationReceivedCb
-     * @param {ReceivedCommand} command - Received command information
+     * @callback DHDevice~notificationReceivedCb
+     * @param {DHDevice~ReceivedCommand} command - Received command information
      */
 
     /**
-     * @typedef {Object} ReceivedCommand
-     * @property {updateCommandFunction} update - function for updating the current command with the result
+     * @typedef {Object} DHDevice~ReceivedCommand
+     * @property {DHDevice~updateCommandFunction} update - function for updating the current command with the result
      */
 
     /**
-     * @typedef {function} updateCommandFunction
+     * @typedef {function} DHDevice~updateCommandFunction
      * @param {Object} result - command result
      * @param {function} cb - The callback that handles the response
      * @throws {Error} - throws an error if status is not specified
      */
 
     /**
-     * @callback getDeviceCb
-     * @param {DHError} err - An error object if any errors occurred
+     * @callback DHDevice~getDeviceCb
+     * @param {module:Core~module:Core~DHError} err - An error object if any errors occurred
      * @param {Object} device - Current device information
      */
 
@@ -152,9 +156,11 @@ var DHDevice = (function () {
      * Use subscription object to bind to a 'new command received' event
      * use command.update to specify command result parameters
      *
-     * @param {notificationSubscribeCb} cb - The callback that handles the response
-     * @param {NotificationSubscribeParameters} params - Subscription parameters
-     * @returns {NotificationSubscription} - Added subscription object
+     * @memberof DHDevice
+     * @override
+     * @param {DHDevice~notificationSubscribeCb} cb - The callback that handles the response
+     * @param {DHDevice~NotificationSubscribeParameters} params - Subscription parameters
+     * @returns {DHDevice~NotificationSubscription} - Added subscription object
      */
     DHDevice.prototype.subscribe = function (cb, params) {
         params = params || {};
@@ -168,7 +174,7 @@ var DHDevice = (function () {
         // overwrite _handleMessage to add additional functionality to command object
         sub._handleMessage = function (deviceId, cmd) {
             self._populateCmd(cmd);
-            sub._handleMessageOld(cmd)
+            sub._handleMessageOld(cmd);
         };
 
         return sub;
@@ -204,13 +210,15 @@ var DHDevice = (function () {
 
     /**
      * DHDevice channel states
-     * @borrows DeviceHive#channelStates
+     * @memberof DHDevice
+     * @borrows module:Core~DeviceHive.channelStates
      */
     DHDevice.channelStates = DeviceHive.channelStates;
 
     /**
      * DHDevice subscription states
-     * @borrows Subscription#states
+     * @memberof DHDevice
+     * @borrows module:Core~Subscription.states
      */
     DHDevice.subscriptionStates = Subscription.states;
 

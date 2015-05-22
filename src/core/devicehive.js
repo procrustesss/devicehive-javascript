@@ -1,3 +1,6 @@
+/**
+ * @module Core
+ */
 var DeviceHive = (function () {
     'use strict';
 
@@ -26,6 +29,7 @@ var DeviceHive = (function () {
      * DeviceHive channel states
      * @readonly
      * @enum {number}
+     * @memberof module:Core~DeviceHive
      */
     var channelStates = {
         /** channel is not connected */
@@ -37,37 +41,37 @@ var DeviceHive = (function () {
     };
 
     /**
-     * @callback openChannelCb
+     * @callback DeviceHive~openChannelCb
      * @param {DHError} err - An error object if any errors occurred
      * @param {Object} channel - A name of the opened channel
      */
 
     /**
-     * @typedef {Object} State
+     * @typedef {Object} DeviceHive~State
      * @property {Number} oldState - previous state
      * @property {Number} newState - current state
      */
 
     /**
-     * @callback channelStateChangedCb
+     * @callback DeviceHive~channelStateChangedCb
      * @param {DHError} err - An error object if any errors occurred
      * @param {State} state - A channel state object
      */
 
     /**
-     * @callback subscribeCb
+     * @callback DeviceHive~subscribeCb
      * @param {DHError} err - An error object if any errors occurred
-     * @param {Subscription} subscription - added subscription object
+     * @param {module:Core~Subscription} subscription - added subscription object
      */
 
     /**
-     * @callback unsubscribeCb
+     * @callback DeviceHive~unsubscribeCb
      * @param {DHError} err - An error object if any errors occurred
-     * @param {Subscription} subscription - removed subscription object
+     * @param {module:Core~Subscription} subscription - removed subscription object
      */
 
     /**
-     * @typedef {Object} SubscribeParameters
+     * @typedef {Object} DeviceHive~SubscribeParameters
      * @property {function} onMessage - a callback that will be invoked when a message is received
      * @property {(Array | String)} deviceIds - single device identifier, array of identifiers or null (subscribe to all devices)
      * @property {(Array | String)} names - notification name, array of notifications or null (subscribe to all notifications)
@@ -75,6 +79,10 @@ var DeviceHive = (function () {
 
     /**
      * Core DeviceHive class
+     *
+     * @mixin DeviceHive
+     * @memberof module:Core
+     * @inner
      */
     DeviceHive = {
         channelStates: channelStates,
@@ -87,7 +95,8 @@ var DeviceHive = (function () {
         /**
          * Opens the first compatible communication channel to the server
          *
-         * @param {openChannelCb} cb - The callback that handles the response
+         * @memberof module:Core~DeviceHive
+         * @param {DeviceHive~openChannelCb} cb - The callback that handles the response
          * @param {(Array | String)} [channels = null] - Channel names to open. Default supported channels: 'websocket', 'longpolling'
          */
         openChannel: function (cb, channels) {
@@ -157,7 +166,8 @@ var DeviceHive = (function () {
         /**
          * Closes the communications channel to the server
          *
-         * @param {noDataCallback} cb - The callback that handles the response
+         * @memberof module:Core~DeviceHive
+         * @param {module:Core~noDataCallback} cb - The callback that handles the response
          */
         closeChannel: function (cb) {
             cb = utils.createCallback(cb);
@@ -187,7 +197,8 @@ var DeviceHive = (function () {
         /**
          * Adds a callback that will be invoked when the communication channel state is changed
          *
-         * @param {channelStateChangedCb} cb - The callback that handles an event
+         * @memberof module:Core~DeviceHive
+         * @param {DeviceHive~channelStateChangedCb} cb - The callback that handles an event
          */
         channelStateChanged: function (cb) {
             cb = utils.createCallback(cb);
@@ -203,9 +214,10 @@ var DeviceHive = (function () {
         /**
          * Subscribes to messages and return a subscription object
          *
-         * @param {subscribeCb} cb - The callback that handles the response
-         * @param {SubscribeParameters} [params = null] - Subscription parameters
-         * @return {Subscription} - Added subscription object
+         * @memberof module:Core~DeviceHive
+         * @param {DeviceHive~subscribeCb} cb - The callback that handles the response
+         * @param {DeviceHive~SubscribeParameters} [params = null] - Subscription parameters
+         * @return {module:Core~Subscription} - Added subscription object
          */
         subscribe: function (cb, params) {
             this._ensureConnectedState();
@@ -235,9 +247,10 @@ var DeviceHive = (function () {
         /**
          * Remove subscription to messages
          *
-         * @param {(String | Subscription)} subscriptionOrId - Identifier of the subscription or subscription object returned by subscribe method
-         * @param {unsubscribeCb} cb - The callback that handles the response
-         * @return {Subscription} - Added subscription object
+         * @memberof module:Core~DeviceHive
+         * @param {(String | module:Core~Subscription)} subscriptionOrId - Identifier of the subscription or subscription object returned by subscribe method
+         * @param {DeviceHive~unsubscribeCb} cb - The callback that handles the response
+         * @return {module:Core~Subscription} - Added subscription object
          * @throws Will throw an error if subscriptionId was not found
          */
         unsubscribe: function (subscriptionOrId, cb) {
@@ -287,7 +300,7 @@ var DeviceHive = (function () {
 /**
  * A callback function which is executed when an operation has been completed
  * @callback noDataCallback
- * @param {DHError} err - An error object if any errors occurred
+ * @param {module:Core~DHError} err - An error object if any errors occurred
  */
 
 /**

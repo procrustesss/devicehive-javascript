@@ -845,6 +845,9 @@ var restApi = (function () {
         }
     };
 }());
+/**
+ * @module Core
+ */
 var DeviceHive = (function () {
     'use strict';
 
@@ -873,6 +876,7 @@ var DeviceHive = (function () {
      * DeviceHive channel states
      * @readonly
      * @enum {number}
+     * @memberof module:Core~DeviceHive
      */
     var channelStates = {
         /** channel is not connected */
@@ -884,37 +888,37 @@ var DeviceHive = (function () {
     };
 
     /**
-     * @callback openChannelCb
+     * @callback DeviceHive~openChannelCb
      * @param {DHError} err - An error object if any errors occurred
      * @param {Object} channel - A name of the opened channel
      */
 
     /**
-     * @typedef {Object} State
+     * @typedef {Object} DeviceHive~State
      * @property {Number} oldState - previous state
      * @property {Number} newState - current state
      */
 
     /**
-     * @callback channelStateChangedCb
+     * @callback DeviceHive~channelStateChangedCb
      * @param {DHError} err - An error object if any errors occurred
      * @param {State} state - A channel state object
      */
 
     /**
-     * @callback subscribeCb
+     * @callback DeviceHive~subscribeCb
      * @param {DHError} err - An error object if any errors occurred
-     * @param {Subscription} subscription - added subscription object
+     * @param {module:Core~Subscription} subscription - added subscription object
      */
 
     /**
-     * @callback unsubscribeCb
+     * @callback DeviceHive~unsubscribeCb
      * @param {DHError} err - An error object if any errors occurred
-     * @param {Subscription} subscription - removed subscription object
+     * @param {module:Core~Subscription} subscription - removed subscription object
      */
 
     /**
-     * @typedef {Object} SubscribeParameters
+     * @typedef {Object} DeviceHive~SubscribeParameters
      * @property {function} onMessage - a callback that will be invoked when a message is received
      * @property {(Array | String)} deviceIds - single device identifier, array of identifiers or null (subscribe to all devices)
      * @property {(Array | String)} names - notification name, array of notifications or null (subscribe to all notifications)
@@ -922,6 +926,10 @@ var DeviceHive = (function () {
 
     /**
      * Core DeviceHive class
+     *
+     * @mixin DeviceHive
+     * @memberof module:Core
+     * @inner
      */
     DeviceHive = {
         channelStates: channelStates,
@@ -934,7 +942,8 @@ var DeviceHive = (function () {
         /**
          * Opens the first compatible communication channel to the server
          *
-         * @param {openChannelCb} cb - The callback that handles the response
+         * @memberof module:Core~DeviceHive
+         * @param {DeviceHive~openChannelCb} cb - The callback that handles the response
          * @param {(Array | String)} [channels = null] - Channel names to open. Default supported channels: 'websocket', 'longpolling'
          */
         openChannel: function (cb, channels) {
@@ -1004,7 +1013,8 @@ var DeviceHive = (function () {
         /**
          * Closes the communications channel to the server
          *
-         * @param {noDataCallback} cb - The callback that handles the response
+         * @memberof module:Core~DeviceHive
+         * @param {module:Core~noDataCallback} cb - The callback that handles the response
          */
         closeChannel: function (cb) {
             cb = utils.createCallback(cb);
@@ -1034,7 +1044,8 @@ var DeviceHive = (function () {
         /**
          * Adds a callback that will be invoked when the communication channel state is changed
          *
-         * @param {channelStateChangedCb} cb - The callback that handles an event
+         * @memberof module:Core~DeviceHive
+         * @param {DeviceHive~channelStateChangedCb} cb - The callback that handles an event
          */
         channelStateChanged: function (cb) {
             cb = utils.createCallback(cb);
@@ -1050,9 +1061,10 @@ var DeviceHive = (function () {
         /**
          * Subscribes to messages and return a subscription object
          *
-         * @param {subscribeCb} cb - The callback that handles the response
-         * @param {SubscribeParameters} [params = null] - Subscription parameters
-         * @return {Subscription} - Added subscription object
+         * @memberof module:Core~DeviceHive
+         * @param {DeviceHive~subscribeCb} cb - The callback that handles the response
+         * @param {DeviceHive~SubscribeParameters} [params = null] - Subscription parameters
+         * @return {module:Core~Subscription} - Added subscription object
          */
         subscribe: function (cb, params) {
             this._ensureConnectedState();
@@ -1082,9 +1094,10 @@ var DeviceHive = (function () {
         /**
          * Remove subscription to messages
          *
-         * @param {(String | Subscription)} subscriptionOrId - Identifier of the subscription or subscription object returned by subscribe method
-         * @param {unsubscribeCb} cb - The callback that handles the response
-         * @return {Subscription} - Added subscription object
+         * @memberof module:Core~DeviceHive
+         * @param {(String | module:Core~Subscription)} subscriptionOrId - Identifier of the subscription or subscription object returned by subscribe method
+         * @param {DeviceHive~unsubscribeCb} cb - The callback that handles the response
+         * @return {module:Core~Subscription} - Added subscription object
          * @throws Will throw an error if subscriptionId was not found
          */
         unsubscribe: function (subscriptionOrId, cb) {
@@ -1134,7 +1147,7 @@ var DeviceHive = (function () {
 /**
  * A callback function which is executed when an operation has been completed
  * @callback noDataCallback
- * @param {DHError} err - An error object if any errors occurred
+ * @param {module:Core~DHError} err - An error object if any errors occurred
  */
 
 /**
@@ -1149,14 +1162,15 @@ var DeviceHive = (function () {
  * @typedef {Object} Http
  * @property {function} abort - Aborts current request
  */
+
 var Subscription = (function () {
     'use strict';
 
     /**
-     * Subscription object constructor
-     *
      * @class
-     * @private
+     * @classdesc Subscription object constructor
+     * @memberof module:Core
+     * @inner
      */
     var Subscription = function (deviceIds, names, onMessage) {
         if (deviceIds && !utils.isArray(deviceIds)) {
@@ -1177,20 +1191,15 @@ var Subscription = (function () {
     };
 
     /**
-     * @callback subscriptionStateChangedCb
-     * @param {DHError} err - An error object if any errors occurred
-     * @param {State} state - A channel state object
-     */
-
-    /**
-     * @callback messageReceivedCb
-     * @param {Object} message - Received message
+     * @callback Subscription~subscriptionStateChangedCb
+     * @param {module:Core~DHError} err - An error object if any errors occurred
+     * @param {module:Core~DeviceHive~State} state - A channel state object
      */
 
     /**
      * Adds a callback that will be invoked when the subscription state is changed
      *
-     * @param {subscriptionStateChangedCb} cb - The callback that handles an event
+     * @param {Subscription~subscriptionStateChangedCb} cb - The callback that handles an event
      */
     Subscription.prototype.stateChanged = function (cb) {
         cb = utils.createCallback(cb);
@@ -1202,9 +1211,14 @@ var Subscription = (function () {
     };
 
     /**
+     * @callback Subscription~messageReceivedCb
+     * @param {Object} message - Received message
+     */
+
+    /**
      * Adds a callback that will be invoked when a message is received
      *
-     * @param {messageReceivedCb} cb - The callback that handles an event
+     * @param {Subscription~messageReceivedCb} cb - The callback that handles an event
      */
     Subscription.prototype.message = function (cb) {
         cb = utils.createCallback(cb);
@@ -1215,7 +1229,7 @@ var Subscription = (function () {
         if(this.state !== Subscription.states.subscribed)
             return;
 
-        this._events.trigger.apply(this._events, ['onMessage'].concat(utils.toArray(arguments)))
+        this._events.trigger.apply(this._events, ['onMessage'].concat(utils.toArray(arguments)));
     };
 
     Subscription.prototype._changeState = function (newState) {
@@ -1252,6 +1266,7 @@ var Subscription = (function () {
 
     return Subscription;
 }());
+
 var LongPollingChannel = (function () {
     'use strict';
 
@@ -1820,7 +1835,7 @@ var DHDevice = (function () {
      *
      * @class
      * @global
-     * @augments DeviceHive
+     * @mixes module:Core~DeviceHive
      * @param {String} serviceUrl - DeviceHive cloud API url
      * @param {String} deviceId - Device unique identifier
      * @param {String} accessKeyOrDeviceKey - Access key or device key (device key is deprecated) used for auth
@@ -1844,16 +1859,17 @@ var DHDevice = (function () {
     DHDevice.constructor = DHDevice;
 
     /**
-     * @callback getDeviceCb
-     * @param {DHError} err - An error object if any errors occurred
+     * @callback DHDevice~getDeviceCb
+     * @param {module:Core~module:Core~DHError} err - An error object if any errors occurred
      * @param {Object} device - Current device information
      */
 
     /**
      * Gets information about the current device
      *
-     * @param {getDeviceCb} cb - The callback that handles the response
-     * @returns {Http} - Current http request
+     * @memberof DHDevice
+     * @param {DHDevice~getDeviceCb} cb - The callback that handles the response
+     * @returns {module:Core~Http} - Current module:Core~Http request
      */
     DHDevice.prototype.getDevice = function (cb) {
         cb = utils.createCallback(cb);
@@ -1865,9 +1881,10 @@ var DHDevice = (function () {
      * Registers a device in the DeviceHive network with the current device id
      * device key will be implicitly added if specified as an authentication parameter
      *
+     * @memberof DHDevice
      * @param {Object} device - Device parameters
-     * @param {noDataCallback} cb - The callback that handles the response
-     * @returns {Http} - Current http request
+     * @param {module:Core~noDataCallback} cb - The callback that handles the response
+     * @returns {module:Core~Http} - Current module:Core~Http request
      */
     DHDevice.prototype.registerDevice = function (device, cb) {
         cb = utils.createCallback(cb);
@@ -1887,9 +1904,10 @@ var DHDevice = (function () {
     /**
      * Updates a device in the DeviceHive network with the current device id
      *
+     * @memberof DHDevice
      * @param {Object} device - Device parameters
-     * @param {noDataCallback} cb - The callback that handles the response
-     * @returns {Http} - Current http request
+     * @param {module:Core~noDataCallback} cb - The callback that handles the response
+     * @returns {module:Core~Http} - Current module:Core~Http request
      */
     DHDevice.prototype.updateDevice = function (device, cb) {
         cb = utils.createCallback(cb);
@@ -1900,10 +1918,11 @@ var DHDevice = (function () {
     /**
      * Sends new notification to the client
      *
+     * @memberof DHDevice
      * @param {String} notification - Notification name
      * @param {Object} params - Notification parameters
-     * @param {noDataCallback} cb - The callback that handles the response
-     * @returns {Http} - Current http request
+     * @param {module:Core~noDataCallback} cb - The callback that handles the response
+     * @returns {module:Core~Http} - Current module:Core~Http request
      */
     DHDevice.prototype.sendNotification = function (notification, params, cb) {
         cb = utils.createCallback(cb);
@@ -1917,42 +1936,42 @@ var DHDevice = (function () {
 
 
     /**
-     * @callback notificationSubscribeCb
-     * @param {DHError} err - An error object if any errors occurred
-     * @param {NotificationSubscription} subscription - added subscription object
+     * @callback DHDevice~notificationSubscribeCb
+     * @param {module:Core~module:Core~DHError} err - An error object if any errors occurred
+     * @param {DHDevice~NotificationSubscription} subscription - added subscription object
      */
 
     /**
-     * @typedef {Object} NotificationSubscribeParameters
+     * @typedef {Object} DHDevice~NotificationSubscribeParameters
      * @property {function} onMessage - initial callback that will be invoked when a command is received
      * @property {(Array | String)} names - notification name, array of notifications or null (subscribe to all notifications)
      */
 
     /**
-     * @typedef {Subscription} NotificationSubscription
-     * @property {notificationReceivedCb} cb - a callback that will be invoked when a command is received
+     * @typedef {Subscription} DHDevice~NotificationSubscription
+     * @property {DHDevice~notificationReceivedCb} cb - a callback that will be invoked when a command is received
      */
 
     /**
-     * @callback notificationReceivedCb
-     * @param {ReceivedCommand} command - Received command information
+     * @callback DHDevice~notificationReceivedCb
+     * @param {DHDevice~ReceivedCommand} command - Received command information
      */
 
     /**
-     * @typedef {Object} ReceivedCommand
-     * @property {updateCommandFunction} update - function for updating the current command with the result
+     * @typedef {Object} DHDevice~ReceivedCommand
+     * @property {DHDevice~updateCommandFunction} update - function for updating the current command with the result
      */
 
     /**
-     * @typedef {function} updateCommandFunction
+     * @typedef {function} DHDevice~updateCommandFunction
      * @param {Object} result - command result
      * @param {function} cb - The callback that handles the response
      * @throws {Error} - throws an error if status is not specified
      */
 
     /**
-     * @callback getDeviceCb
-     * @param {DHError} err - An error object if any errors occurred
+     * @callback DHDevice~getDeviceCb
+     * @param {module:Core~module:Core~DHError} err - An error object if any errors occurred
      * @param {Object} device - Current device information
      */
 
@@ -1962,9 +1981,11 @@ var DHDevice = (function () {
      * Use subscription object to bind to a 'new command received' event
      * use command.update to specify command result parameters
      *
-     * @param {notificationSubscribeCb} cb - The callback that handles the response
-     * @param {NotificationSubscribeParameters} params - Subscription parameters
-     * @returns {NotificationSubscription} - Added subscription object
+     * @memberof DHDevice
+     * @override
+     * @param {DHDevice~notificationSubscribeCb} cb - The callback that handles the response
+     * @param {DHDevice~NotificationSubscribeParameters} params - Subscription parameters
+     * @returns {DHDevice~NotificationSubscription} - Added subscription object
      */
     DHDevice.prototype.subscribe = function (cb, params) {
         params = params || {};
@@ -1978,7 +1999,7 @@ var DHDevice = (function () {
         // overwrite _handleMessage to add additional functionality to command object
         sub._handleMessage = function (deviceId, cmd) {
             self._populateCmd(cmd);
-            sub._handleMessageOld(cmd)
+            sub._handleMessageOld(cmd);
         };
 
         return sub;
@@ -2014,17 +2035,20 @@ var DHDevice = (function () {
 
     /**
      * DHDevice channel states
-     * @borrows DeviceHive#channelStates
+     * @memberof DHDevice
+     * @borrows module:Core~DeviceHive.channelStates
      */
     DHDevice.channelStates = DeviceHive.channelStates;
 
     /**
      * DHDevice subscription states
-     * @borrows Subscription#states
+     * @memberof DHDevice
+     * @borrows module:Core~Subscription.states
      */
     DHDevice.subscriptionStates = Subscription.states;
 
     return DHDevice;
 }());
+
 return DHDevice;
 }));

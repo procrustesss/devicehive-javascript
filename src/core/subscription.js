@@ -2,10 +2,10 @@ var Subscription = (function () {
     'use strict';
 
     /**
-     * Subscription object constructor
-     *
      * @class
-     * @private
+     * @classdesc Subscription object constructor
+     * @memberof module:Core
+     * @inner
      */
     var Subscription = function (deviceIds, names, onMessage) {
         if (deviceIds && !utils.isArray(deviceIds)) {
@@ -26,20 +26,15 @@ var Subscription = (function () {
     };
 
     /**
-     * @callback subscriptionStateChangedCb
-     * @param {DHError} err - An error object if any errors occurred
-     * @param {State} state - A channel state object
-     */
-
-    /**
-     * @callback messageReceivedCb
-     * @param {Object} message - Received message
+     * @callback Subscription~subscriptionStateChangedCb
+     * @param {module:Core~DHError} err - An error object if any errors occurred
+     * @param {module:Core~DeviceHive~State} state - A channel state object
      */
 
     /**
      * Adds a callback that will be invoked when the subscription state is changed
      *
-     * @param {subscriptionStateChangedCb} cb - The callback that handles an event
+     * @param {Subscription~subscriptionStateChangedCb} cb - The callback that handles an event
      */
     Subscription.prototype.stateChanged = function (cb) {
         cb = utils.createCallback(cb);
@@ -51,9 +46,14 @@ var Subscription = (function () {
     };
 
     /**
+     * @callback Subscription~messageReceivedCb
+     * @param {Object} message - Received message
+     */
+
+    /**
      * Adds a callback that will be invoked when a message is received
      *
-     * @param {messageReceivedCb} cb - The callback that handles an event
+     * @param {Subscription~messageReceivedCb} cb - The callback that handles an event
      */
     Subscription.prototype.message = function (cb) {
         cb = utils.createCallback(cb);
@@ -64,7 +64,7 @@ var Subscription = (function () {
         if(this.state !== Subscription.states.subscribed)
             return;
 
-        this._events.trigger.apply(this._events, ['onMessage'].concat(utils.toArray(arguments)))
+        this._events.trigger.apply(this._events, ['onMessage'].concat(utils.toArray(arguments)));
     };
 
     Subscription.prototype._changeState = function (newState) {

@@ -1,11 +1,13 @@
-var gulp = require('gulp'),
+var fs = require('fs'),
+    gulp = require('gulp'),
     umd = require('gulp-umd'),
     concat = require('gulp-concat'),
     util = require('gulp-util'),
     jshint = require('gulp-jshint'),
     uglify = require('gulp-uglify'),
     rename = require("gulp-rename"),
-    mocha = require('gulp-mocha');
+    mocha = require('gulp-mocha'),
+    doc = require("gulp-jsdoc-to-markdown");
 
 var buildConfig = {
     browser: {
@@ -112,7 +114,7 @@ gulp.task('build', function () {
 
 gulp.task('buildall', buildAll);
 
-gulp.task('test', function () { 
+gulp.task('test', function () {
     return gulp.src('./test/*.js', {read: false})
         .pipe(mocha({ }));
 });
@@ -179,9 +181,18 @@ gulp.task('lint', function () {
         }));
 });
 
+gulp.task('docs', function() {
+    return gulp.src('src/**/*.js')
+        .pipe(concat('README.md'))
+        .pipe(doc({
+            template: fs.readFileSync("./readme.hbs", "utf8"),
+            separators: true
+        }))
+        .pipe(gulp.dest("."));
+});
 
 gulp.task('watch', function () {
-    gulp.watch('./src/**', ['build', 'test']);
+    gulp.watch('./src/**', ['build', 'test', 'docs']);
 });
 
 gulp.task('dev', ['build', 'watch']);
