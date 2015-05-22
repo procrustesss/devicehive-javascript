@@ -1,3 +1,4 @@
+[![Build Status](https://travis-ci.org/devicehive/devicehive-javascript.svg?branch=master)](https://travis-ci.org/devicehive/devicehive-javascript)
 [![Bower version](https://badge.fury.io/bo/devicehive.svg)](http://badge.fury.io/bo/devicehive)
 
 #DeviceHive JavaScript framework
