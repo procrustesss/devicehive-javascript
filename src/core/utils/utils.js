@@ -28,7 +28,7 @@ var utils = (function () {
         },
 
         isAccessKey: function (val) {
-            return val != null && val.length === 44 && new RegExp('[A-Za-z0-9+/=]').test(val);
+            return val != null && val.length === 44 && new RegExp('^[A-Za-z0-9+/=]*$').test(val);
         },
 
         inArray: function (val, arr, ind) {
@@ -62,12 +62,12 @@ var utils = (function () {
         },
 
         map: function (array, mapper) {
-            if (!array) {
-                return array;
+            if (!utils.isArrayLike(array)) {
+                throw new TypeError(array + ' is not an array');
             }
 
             if (!utils.isFunction(mapper)) {
-                throw new TypeError(callback + ' is not a function');
+                throw new TypeError(mapper + ' is not a function');
             }
 
             var res = [];
@@ -79,8 +79,8 @@ var utils = (function () {
         },
 
         reduce: function (array, callback /*, initialValue*/) {
-            if (!array) {
-                return array;
+            if (!utils.isArrayLike(array)) {
+                throw new TypeError(array + ' is not an array');
             }
 
             if (!utils.isFunction(callback)) {
@@ -91,7 +91,7 @@ var utils = (function () {
             if (arguments.length == 3) {
                 value = arguments[2];
             } else {
-                while (k < len && !k in t) {
+                while (k < len && !(k in t)) {
                     k++;
                 }
                 if (k >= len) {

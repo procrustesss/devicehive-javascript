@@ -133,4 +133,212 @@ describe('Utils tests', function(){
             expect(utils.isString(null)).to.be.false;
         });
     });
+
+    describe('isAccessKey(arg)', function(){
+        it('should return true when valid access key is passed', function(){
+            expect(utils.isAccessKey('dlaSz1+bV3z07vODnM7ICWKHQnl9hIuPX0KUHjlmfSY=')).to.be.true;
+        });
+
+        it('should return false when access key with invalid characters(-, !, #, %, *)is passed', function(){
+            expect(utils.isAccessKey('dlaSz1+bV3z-7v!Dn#7ICW%HQn*9hIuPX0KUHjlmfSY=')).to.be.false;
+        });
+
+        it('should return false when simple object is passed', function(){
+            expect(utils.isAccessKey({str: "Lorem ipsum"})).to.be.false;
+        });
+
+        it('should return false when number is passed', function(){
+            expect(utils.isAccessKey(4)).to.be.false;
+        });
+
+        it('should return false when bool is passed', function(){
+            expect(utils.isAccessKey( true )).to.be.false;
+        });
+
+        it('should return false when undefined is passed', function(){
+            expect(utils.isAccessKey(undefined)).to.be.false;
+        });
+
+        it('should return false when null is passed', function(){
+            expect(utils.isAccessKey(null)).to.be.false;
+        });
+    });
+
+    describe('inArray()', function(){
+        it('should return position of searched value in Array starting from the specified index', function(){
+            expect(utils.inArray(3, [1, 2, 3], 1)).to.equal(2);
+        });
+
+        it('should return position of searched value in Array', function(){
+            expect(utils.inArray(1, [1, 2, 3])).to.equal(0);
+        });
+
+        it('should return -1 when searched value isn\'t present in Array starting from the specified index', function(){
+            expect(utils.inArray(1, [1, 2, 3], 1)).to.equal(-1);
+        });
+
+        it('should return -1 when searched value isn\'t present in Array', function(){
+            expect(utils.inArray(10, [1, 2, 3])).to.equal(-1);
+        });
+
+        it('should return position of searched value in collection of elments with different types', function(){
+            expect(utils.inArray('Lorem ipsum', [1, 2.5, { a: 5, b: 'str'}, 'Lorem ipsum', true, null, undefined]), 1)
+            .to.equal(3);
+        });
+
+        it('should throw exception if non-array object is passed', function(){
+            expect(function(){ utils.inArray(1, 15); }).to.throw(TypeError);
+        });
+    });
+
+    describe('map()', function(){
+        it('should return valid array with applied map function', function(){
+            expect(utils.map([15, 8, 3], function(){ return this + 5; })).to.deep.equal([20, 13, 8]);
+        });
+
+        it('should return valid array with applied map function', function(){
+            expect(utils.map(['str1', 'str2', 'str3'], function(){ return this + 'test'; }))
+            .to.deep.equal(['str1test', 'str2test', 'str3test']);
+        });
+
+        it('should pass array index as the first argument to mapper function', function(){
+            expect(utils.map(['str1', 'str2', 'str3'], function(arg){ return arg; })).to.deep.equal([0, 1, 2]);
+        });
+
+        it('should pass initial index as the second argument to mapper function', function(){
+            var initArray = ['str1'];
+            expect(utils.map(initArray, function(arg, arg2){ return arg2; })).to.deep.equal([initArray]);
+        });
+
+        it('should throw TypeError if non-array object is passed as the first argument', function(){
+            expect(function(){ utils.map(undefined, function() { return this + 5; }); }).to.throw(TypeError);;
+        });
+
+        it('should throw TypeError if non-function object is passed as the second argument', function(){
+            expect(function(){ utils.map([1, 2, 3], 'lorem ipsum'); }).to.throw(TypeError);
+        });
+
+        it('should return empty array if empty array is passed', function(){
+            expect(utils.map([], function(){ this + 1; })).to.deep.equal([]);
+        });
+    });
+
+    describe('reduce()', function(){
+        it('should retun valid value for input array', function(){
+            expect(utils.reduce([0, 1, 2, 3, 4], function(previousValue, currentValue, index, array) {
+                return previousValue + currentValue;
+            })).to.equal(10);
+        });
+
+        it('should retun valid value for input array', function(){
+            expect(utils.reduce(['Lorem', 'ipsum', 'dolor', 'sit', 'amet'], function(a, b) {
+                    return a.concat(' ' + b);
+                })
+            ).to.equal('Lorem ipsum dolor sit amet');
+        });
+
+        it('should throw TypeError if empty array is passed', function(){
+            expect(function(){utils.reduce([], function(){ this + 1; }); }).to.throw(TypeError);
+        });
+
+        it('should throw TypeError if non-array object is passed as the first argument', function(){
+            expect(function(){ utils.reduce(undefined, function() { return this + 5; }); }).to.throw(TypeError);
+        });
+
+        it('should throw TypeError if non-function object is passed as the second argument', function(){
+            expect(function(){ utils.reduce([1, 2, 3], undefined); }).to.throw(TypeError);
+        });
+    });
+    
+    describe('forEach()', function(){
+        it('should execute callback function for each array element', function(){
+            var sum = 0;
+            utils.forEach([15, 8, 3], function(){ sum += this; });
+            expect(sum).to.equal(26);
+        });
+        
+        it('should pass element index to callback function', function(){
+            var sum = [];
+            utils.forEach([15, 8, 3], function(i){ sum.push(i); });
+            expect(sum).to.deep.equal([0, 1, 2]);
+        });
+        
+        it('should pass initial Array object callback function', function(){
+            var sum = [];
+            utils.forEach([15, 8, 3], function(i, arr){ sum = arr; });
+            expect(sum).to.deep.equal([15, 8, 3]);
+        });
+        
+        it('should deal with non-array object', function(){
+            var obj = {
+                a: 10,
+                b: 20,
+                c: 30
+            }, sum = 0;
+            utils.forEach(obj, function(){ sum += this; });
+            expect(sum).to.equal(60);
+        });
+        
+        it('should throw TypeError if non-function object is passed as the second argument', function(){
+            expect(function(){ utils.forEach([1, 2, 3], undefined); }).to.throw(TypeError);
+        });
+    });
+        
+    describe('filter()', function(){
+        it('should filter data in array according to callback function', function(){
+            expect(utils.filter(['1', undefined, {a: 3}, false, 5, '3'], function(){
+                return Object.prototype.toString.call(this) == '[object Number]';
+            })).to.deep.equal([5]);
+        });
+        
+        it('should filter data in array according to callback function', function(){
+            expect(utils.filter(['1', undefined, {a: 3}, false, 5, '3'], function(){
+                return Object.prototype.toString.call(this) === '[object Number]';
+            })).to.deep.equal([5]);
+        });
+        
+        /*it('should filter data in object according to callback function', function(){
+            expect(utils.filter([1, 2, 3, 4], function(index, arr){console.log(arr[index]); console.log(this); return this === 4;})).to.deep.equal([4]);
+        });*/
+        
+        it('should throw TypeError if non-function object is passed as the second argument', function(){
+            expect(function(){ utils.filter([1, 2, 3], undefined); }).to.throw(TypeError);
+        });
+    });
+    
+    describe('toArray()', function(){
+        it('should gather all input parameters to single array', function(){
+            expect(function(){ return utils.toArray(arguments); }(1, 'Lorem ipsum', undefined, false))
+            .to.deep.equal([1, 'Lorem ipsum', undefined, false]);
+        });        
+    });
+    
+    describe('find()', function(){
+        /*it('should return element matching search criteria (===) when it exists in input array', function(){
+            expect(utils.find([1, 2, 3, 4], function(){return this === 4;}))
+            .to.equal(4);
+        });*/
+        
+        it('should return element matching search criteria (==) when it exists in input array', function(){
+            expect(utils.find([1, 2, 3, 4], function(){return this == 4;}))
+            .to.equal(4);
+        });
+        
+        it('should return null when all input array elements don\'t match search criteria', function(){
+            expect(utils.find([1, function(){}, true, 'Lorem ipsum', 2.5], function(){return this == 3.6;}))
+            .to.be.null;
+        });
+    });
+    
+    describe('parseDate()', function(){
+        it('should parse given valid string into Date object', function(){
+            expect(utils.parseDate('2015-12-11')).to.deep.equal(new Date(2015, 11, 11));
+        });
+        
+        it('should parse given valid string into Date object', function(){
+            expect(utils.parseDate('1900/02/01/00/11/01/000')).to.deep.equal(new Date(1900, 01, 01, 0, 11, 1, 0));
+        });        
+    });
+      
+    
 });
