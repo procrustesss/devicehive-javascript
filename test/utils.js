@@ -31,7 +31,7 @@ describe('Utils tests', function(){
     });
 
     describe('isFunction()', function(){
-        it('should return true when gunction is passed', function(){
+        it('should return true when function is passed', function(){
             expect(utils.isFunction( function(){} )).to.be.true;
         });
 
@@ -249,26 +249,26 @@ describe('Utils tests', function(){
             expect(function(){ utils.reduce([1, 2, 3], undefined); }).to.throw(TypeError);
         });
     });
-    
+
     describe('forEach()', function(){
         it('should execute callback function for each array element', function(){
             var sum = 0;
             utils.forEach([15, 8, 3], function(){ sum += this; });
             expect(sum).to.equal(26);
         });
-        
+
         it('should pass element index to callback function', function(){
             var sum = [];
             utils.forEach([15, 8, 3], function(i){ sum.push(i); });
             expect(sum).to.deep.equal([0, 1, 2]);
         });
-        
+
         it('should pass initial Array object callback function', function(){
             var sum = [];
             utils.forEach([15, 8, 3], function(i, arr){ sum = arr; });
             expect(sum).to.deep.equal([15, 8, 3]);
         });
-        
+
         it('should deal with non-array object', function(){
             var obj = {
                 a: 10,
@@ -278,67 +278,159 @@ describe('Utils tests', function(){
             utils.forEach(obj, function(){ sum += this; });
             expect(sum).to.equal(60);
         });
-        
+
         it('should throw TypeError if non-function object is passed as the second argument', function(){
             expect(function(){ utils.forEach([1, 2, 3], undefined); }).to.throw(TypeError);
         });
     });
-        
+
     describe('filter()', function(){
         it('should filter data in array according to callback function', function(){
             expect(utils.filter(['1', undefined, {a: 3}, false, 5, '3'], function(){
                 return Object.prototype.toString.call(this) == '[object Number]';
             })).to.deep.equal([5]);
         });
-        
+
         it('should filter data in array according to callback function', function(){
             expect(utils.filter(['1', undefined, {a: 3}, false, 5, '3'], function(){
                 return Object.prototype.toString.call(this) === '[object Number]';
             })).to.deep.equal([5]);
         });
-        
+
         /*it('should filter data in object according to callback function', function(){
             expect(utils.filter([1, 2, 3, 4], function(index, arr){console.log(arr[index]); console.log(this); return this === 4;})).to.deep.equal([4]);
         });*/
-        
+
         it('should throw TypeError if non-function object is passed as the second argument', function(){
             expect(function(){ utils.filter([1, 2, 3], undefined); }).to.throw(TypeError);
         });
     });
-    
+
     describe('toArray()', function(){
         it('should gather all input parameters to single array', function(){
             expect(function(){ return utils.toArray(arguments); }(1, 'Lorem ipsum', undefined, false))
             .to.deep.equal([1, 'Lorem ipsum', undefined, false]);
-        });        
+        });
     });
-    
+
     describe('find()', function(){
         /*it('should return element matching search criteria (===) when it exists in input array', function(){
             expect(utils.find([1, 2, 3, 4], function(){return this === 4;}))
             .to.equal(4);
         });*/
-        
+
         it('should return element matching search criteria (==) when it exists in input array', function(){
             expect(utils.find([1, 2, 3, 4], function(){return this == 4;}))
             .to.equal(4);
         });
-        
+
         it('should return null when all input array elements don\'t match search criteria', function(){
             expect(utils.find([1, function(){}, true, 'Lorem ipsum', 2.5], function(){return this == 3.6;}))
             .to.be.null;
         });
     });
-    
+
     describe('parseDate()', function(){
         it('should parse given valid string into Date object', function(){
             expect(utils.parseDate('2015-12-11')).to.deep.equal(new Date(2015, 11, 11));
         });
-        
+
         it('should parse given valid string into Date object', function(){
             expect(utils.parseDate('1900/02/01/00/11/01/000')).to.deep.equal(new Date(1900, 01, 01, 0, 11, 1, 0));
-        });        
+        });
     });
-      
-    
+
+    describe('formatDate()', function(){
+        it('should return same string if string object was passed', function(){
+            expect(utils.formatDate('2015-12-11')).to.equal('2015-12-11');
+        });
+
+        it('should throw error if non-string and non-Date object was passed', function(){
+            expect(function(){ utils.formatDate(new Object()); }).to.throw(Error);
+        });
+
+        it('should return string date formatted', function(){
+            var date = new Date(2015, 0, 16, 22, 11, 1, 0);
+            expect(utils.formatDate(date)).to.equal('2015-01-' + date.getUTCDate() + 'T' + date.getUTCHours() + ':11:01.000');
+        });
+    });
+
+    describe('encodeBase64()', function () {
+        it('should return undefined if undefined was passed', function(){
+            expect(utils.encodeBase64(undefined)).to.equal(undefined);
+        });
+
+        it('should return null if null was passed', function(){
+            expect(utils.encodeBase64(null)).to.equal(null);
+        });
+
+        it('should return encoded base64 string', function(){
+            expect(utils.encodeBase64('Test encodeBase64()')).to.equal('VGVzdCBlbmNvZGVCYXNlNjQoKQ==');
+        });
+    });
+
+    describe('createCallback()', function(){
+        it('should return function that was passed as an argument', function(){
+            var func = function Func() {};
+            expect(utils.createCallback(func)).to.deep.equal(func);
+        });
+
+        it('should create callback function if no function was passed as an argument', function(){
+            expect(utils.createCallback(null)).to.be.a('Function');
+        });
+    });
+
+    describe('serializeQuery()', function(){
+        it('should return query string', function(){
+            expect(utils.serializeQuery({key1: 'value1', key2: 2, key3: true})).to.equal('key1=value1&key2=2&key3=true');
+        });
+        it('should return empty string', function(){
+            expect(utils.serializeQuery(null)).to.equal('');
+            expect(utils.serializeQuery(undefined)).to.equal('');
+        });
+    });
+
+    describe('makeUrl()', function(){
+        it('should return valid url', function(){
+            expect(utils.makeUrl({method: 'POST', url: 'http://test.com'})).to.equal('http://test.com');
+        });
+
+        it('should return valid url for GET method', function(){
+            expect(utils.makeUrl({method: 'GET', url: 'http://test.com', data: {key1: 'value1', key2: 2, key3: true}})).to.equal('http://test.com?key1=value1&key2=2&key3=true');
+        });
+
+        it('should return valid url for GET method and url that already has params', function(){
+            expect(utils.makeUrl({method: 'GET', url: 'http://test.com?key0=value0', data: { key1: 'value1', key2: 2, key3: true }})).to.equal('http://test.com?key0=value0&key1=value1&key2=2&key3=true');
+        });
+    });
+
+    describe('serverErrorMessage()', function(){
+        it('should return error object without response text', function(){
+            expect(utils.serverErrorMessage('http://test')).to.deep.equal({error: 'DeviceHive server error', request: 'http://test'});
+        });
+
+        it('should return error object with response text', function(){
+            expect(utils.serverErrorMessage({ url: 'http://test', responseText: 'Test reason' })).to.deep.equal({error: 'DeviceHive server error - Test reason', request: { url: 'http://test', responseText: 'Test reason' }});
+        });
+
+        it('should return error object with response json text', function(){
+            expect(utils.serverErrorMessage({ url: 'http://test', responseText: '{ "message": "Test reason"}' })).to.deep.equal({error: 'DeviceHive server error - Test reason', request: { url: 'http://test', responseText: '{ "message": "Test reason"}'}});
+        });
+    });
+
+    describe('errorMessage()', function(){
+        it('should return error object with message', function(){
+            expect(utils.errorMessage('test')).to.deep.equal({ error: 'DeviceHive error: test'});
+        });
+    });
+
+    describe('setTimeout()', function(){
+        it('should set timeout with right callback and delay', function(){
+            var cb = function testCb() {};
+            var result = utils.setTimeout(cb, 1111);
+            expect(result).to.have.property('_idleTimeout', 1111);
+            expect(result).to.have.property('_onTimeout').that.is.a('Function').and.deep.equal(cb)
+        });
+    });
+
 });
