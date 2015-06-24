@@ -25,14 +25,14 @@ var WebSocketDeviceChannel = (function () {
                 ? new WebSocketDeviceApi()
                 : new WebSocketClientApi();
 
-            this._wsApi._events.bind('onCommandInsert', function (cmd) {
+            this._wsApi._events.bind('command.insert', function (cmd) {
                 var subscriptionsToHandle = self.subscriptions;
 
                 if(!self.compatibilityMode){
                     subscriptionsToHandle = utils.find(self.subscriptions, function () {
                         return this.id === cmd.subscriptionId;
                     });
-                    subscriptionsToHandle = [subscriptionsToHandle];
+                    subscriptionsToHandle = subscriptionsToHandle && [subscriptionsToHandle];
                 }
 
                 utils.forEach(subscriptionsToHandle, function(){

@@ -25,7 +25,7 @@ var DHClient = (function () {
         }
     };
 
-    DHClient.prototype = DeviceHive;
+    DHClient.prototype = new DeviceHive();
     DHClient.constructor = DHClient;
 
 
@@ -385,7 +385,7 @@ var DHClient = (function () {
      * @memberof DHClient
      * @borrows module:Core~DeviceHive.channelStates
      */
-    DHClient.channelStates = DeviceHive.channelStates;
+    DHClient.channelStates = DHClient.prototype.channelStates;
 
     /**
      * DHClient subscription states

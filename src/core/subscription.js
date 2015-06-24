@@ -40,7 +40,7 @@ var Subscription = (function () {
         cb = utils.createCallback(cb);
 
         var self = this;
-        return this._events.bind('onStateChanged', function (data) {
+        return this._events.bind('state.changed', function (data) {
             cb.call(self, data);
         });
     };
@@ -57,14 +57,14 @@ var Subscription = (function () {
      */
     Subscription.prototype.message = function (cb) {
         cb = utils.createCallback(cb);
-        return this._events.bind('onMessage', cb);
+        return this._events.bind('message', cb);
     };
 
     Subscription.prototype._handleMessage = function (msg) {
         if(this.state !== Subscription.states.subscribed)
             return;
 
-        this._events.trigger.apply(this._events, ['onMessage'].concat(utils.toArray(arguments)));
+        this._events.trigger.apply(this._events, ['message'].concat(utils.toArray(arguments)))
     };
 
     Subscription.prototype._changeState = function (newState) {
@@ -74,7 +74,7 @@ var Subscription = (function () {
 
         var oldState = this.state;
         this.state = newState;
-        this._events.trigger('onStateChanged', { oldState: oldState, newState: newState });
+        this._events.trigger('state.changed', { oldState: oldState, newState: newState });
     };
 
     Subscription.prototype._setId = function (id) {

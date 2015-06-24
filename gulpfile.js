@@ -3,16 +3,15 @@ var fs = require('fs'),
     umd = require('gulp-umd'),
     concat = require('gulp-concat'),
     util = require('gulp-util'),
-    jshint = require('gulp-jshint'),
     uglify = require('gulp-uglify'),
     rename = require("gulp-rename"),
     mocha = require('gulp-mocha'),
     doc = require("gulp-jsdoc-to-markdown");
 
-var buildConfig = {
-    browser: {
-        device: {
-            files: [
+var config = {
+    "browser": {
+        "device": {
+            "files": [
                 './src/core/utils/utils.js',
                 './src/core/utils/events.js',
                 './src/core/transport/http/xhr.js',
@@ -27,18 +26,19 @@ var buildConfig = {
                 './src/device/channels/*.js',
                 './src/device/device.js'
             ],
-            exports: 'DHDevice',
-            jquery: {
-                files: [
-                    './src/core/jquery.js',
-                    './src/core/utils/jquery.js',
-                    './src/device/jquery.js'
-                ],
-                exports: 'JqDHDevice'
-            }
+            "exports": 'DHDevice',
+
         },
-        client: {
-            files: [
+        "device.jquery": {
+            "files": [
+                './src/core/jquery.js',
+                './src/core/utils/jquery.js',
+                './src/device/jquery.js'
+            ],
+            "exports": 'JqDHDevice'
+        },
+        "client": {
+            "files": [
                 './src/core/utils/utils.js',
                 './src/core/utils/events.js',
                 './src/core/transport/http/xhr.js',
@@ -52,134 +52,121 @@ var buildConfig = {
                 './src/client/channels/*.js',
                 './src/client/client.js'
             ],
-            exports: 'DHClient',
-            jquery: {
-                files: [
-                    './src/core/jquery.js',
-                    './src/core/utils/jquery.js',
-                    './src/client/jquery.js'
-                ],
-                exports: 'JqDHClient'
-            }
+            "exports": 'DHClient',
+
+        },
+        "client.jquery": {
+            "files": [
+                './src/core/jquery.js',
+                './src/core/utils/jquery.js',
+                './src/client/jquery.js'
+            ],
+            "exports": 'JqDHClient'
+        }
+    },
+    "node": {
+        '*': {
+            "files": [
+                './src/core/utils/utils.js',
+                './src/core/utils/events.js',
+                './src/core/transport/http/http.js',
+                './src/core/transport/ws/browser.js',
+                './src/core/transport/ws/ws.js',
+                './src/core/transport/longpolling.js',
+                './src/core/api/rest.js',
+                './src/core/api/ws/client.js',
+                './src/core/api/ws/device.js',
+                './src/core/subscription.js',
+                './src/core/devicehive.js',
+                './src/core/channels/longpolling.js',
+                './src/client/channels/*.js',
+                './src/device/channels/*.js',
+                './src/client/client.js',
+                './src/device/device.js',
+                './src/core/node.js'
+            ],
+            "exports": 'Main'
         }
     }
 };
 
-function build(config, platform, type, subtype) {
-    gulp.src(config.files)
-        .pipe(concat('devicehive.' + type + (subtype ? '.' + subtype : '') + '.js'))
-        .pipe(umd({
-            exports: function (file) {
-                return config.exports;
-            },
-            namespace: function (file) {
-                return config.exports;
-            }
-        }))
-        .pipe(gulp.dest('./build/' + platform + '/'));
+function build(config, platform, lib) {
+    var fileName = lib === '*' ? 'devicehive.js' : 'devicehive.' + lib + '.js';
 
-    if (platform == 'browser' && subtype !== 'jquery') {
-        build(config.jquery, 'browser', type, 'jquery');
-    }
-}
-
-function buildByPlatform(platform) {
-    var platformConfig = buildConfig[platform];
-    for (var type in platformConfig) {
-        build(platformConfig[type], platform, type)
-    }
-}
-
-function buildAll() {
-    for (var platform in buildConfig) {
-        buildByPlatform(platform);
-    }
-}
-
-//usage: gulp build --platform {{platform}} --type {{type}} (device/client)
-gulp.task('build', function () {
-    if (!util.env.type && !util.env.platform) {
-        buildAll();
-    } else {
-        var type = util.env.type,
-            platform = util.env.platform || "browser";
-
-        if (!type) {
-            return buildByPlatform(platform);
+    var modularize = umd({
+        exports: function (file) {
+            return config.exports;
+        },
+        namespace: function (file) {
+            return config.exports;
         }
+    });
 
-        build(buildConfig[platform][type], platform, type);
+    return gulp.src(config.files)
+        .pipe(concat(fileName))
+        .pipe(modularize)
+        .pipe(gulp.dest('./build/' + platform + '/'));
+}
+
+function resolvePlatformTaskName(platform) {
+    return 'build.' + platform;
+}
+
+function resolveLibTaskName(platform, lib) {
+    return resolvePlatformTaskName(platform) + '.' + lib;
+}
+
+
+// create all platform and library tasks
+// each platform task can be started with the script
+//
+// $ gulp build.[platform]
+// e.g.
+// $ gulp build.browser
+//
+// each library task can be started with
+//
+// $ gulp build.[platform].[library]
+// e.g.
+// $ gulp build.browser.client.jquery
+//
+var platformTaskNames = [];
+for (var platform in config) {
+    var platformConfig = config[platform],
+        libTaskNames = [];
+
+    for (var lib in platformConfig) {
+        var libConfig = platformConfig[lib],
+            taskName = resolveLibTaskName(platform, lib);
+
+        // create library task
+        gulp.task(taskName, build.bind(undefined, libConfig, platform, lib));
+        libTaskNames.push(taskName);
     }
-});
 
-gulp.task('buildall', buildAll);
+    // create task for entire platform which depends on all library tasks
+    var platformTaskName = resolvePlatformTaskName(platform);
+    gulp.task(platformTaskName, libTaskNames);
+    platformTaskNames.push(platformTaskName);
+}
 
+// create main build task which depends on all platform tasks
+gulp.task('build', platformTaskNames);
 gulp.task('test', function () {
     return gulp.src('./test/*.js', {read: false})
-        .pipe(mocha({ }));
+        .pipe(mocha());
 });
 
-gulp.task('compress', function () {
+gulp.task('compress', ['build.browser'], function () {
     return gulp.src('./build/browser/**/*[!.min].js')
         .pipe(uglify())
         .pipe(rename({
             suffix: '.min'
         }))
-        .pipe(gulp.dest('./build/browser'))
+        .pipe(gulp.dest('./build/browser'));
 });
 
-gulp.task('lint', function () {
-    return gulp.src('./build/**/*.js')
-        .pipe(jshint())
-        .pipe(jshint.reporter(function (results, data, opts) {
-            var len = results.length,
-                str = '',
-                file, error, globals, unuseds;
-
-            results.forEach(function (result) {
-                file = result.file;
-                error = result.error;
-                str += file + ': line ' + error.line + ', col ' +
-                    error.character + ', ' + error.reason;
-
-                // Add the error code if the --verbose option is set
-                if (opts.verbose) {
-                    str += ' (' + error.code + ')';
-                }
-
-                str += '\n';
-            });
-
-            str += len > 0 ? ("\n" + len + ' error' + ((len === 1) ? '' : 's')) : "";
-
-            data.forEach(function (data) {
-                file = data.file;
-                globals = data.implieds;
-                unuseds = data.unused;
-
-                if (globals || unuseds) {
-                    str += '\n\n' + file + ' :\n';
-                }
-
-                if (globals) {
-                    str += '\tImplied globals:\n';
-                    globals.forEach(function (global) {
-                        str += '\t\t' + global.name + ': ' + global.line + '\n';
-                    });
-                }
-                if (unuseds) {
-                    str += '\tUnused Variables:\n\t\t';
-                    unuseds.forEach(function (unused) {
-                        str += unused.name + '(' + unused.line + '), ';
-                    });
-                }
-            });
-
-            if (str) {
-                console.log(str + "\n");
-            }
-        }));
-});
+gulp.task('default', ['build', 'test', 'docs', 'compress']);
 
 gulp.task('docs', function() {
     return gulp.src('src/**/*.js')
@@ -192,9 +179,5 @@ gulp.task('docs', function() {
 });
 
 gulp.task('watch', function () {
-    gulp.watch('./src/**', ['build', 'test', 'docs']);
+    gulp.watch('./src/**', ['default']);
 });
-
-gulp.task('dev', ['build', 'watch']);
-
-gulp.task('default', ['build']);

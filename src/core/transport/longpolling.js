@@ -2,7 +2,9 @@ var LongPolling = (function () {
     'use strict';
 
     var poll = function (self, timestamp) {
-        var params = { timestamp: timestamp };
+        var params = {
+            timestamp: timestamp
+        };
 
         var continuePollingCb = function (err, res) {
             if (!err) {
@@ -20,7 +22,7 @@ var LongPolling = (function () {
 
                 poll(self, lastTimestamp || timestamp);
             } else {
-                if (self._polling) {
+                if (self._polling && !request.abortedManually) {
                     // Polling unexpectedly stopped probably connection was lost. Try reconnect in 1 second
                     utils.setTimeout(function () {
                         poll(self, timestamp);
@@ -29,12 +31,12 @@ var LongPolling = (function () {
             }
         };
 
-        self._request = self._polling && self._poller.executePoll(params, continuePollingCb);
+        var request = self._request = self._polling && self._poller.executePoll(params, continuePollingCb);
     };
 
     var LongPolling = function (serviceUrl, poller) {
         this.serviceUrl = serviceUrl;
-        this._poller = poller
+        this._poller = poller;
     };
 
     LongPolling.prototype = {
@@ -44,21 +46,25 @@ var LongPolling = (function () {
             this._polling = true;
 
             var self = this;
-            return this._request = restApi.info(this.serviceUrl, function (err, res) {
-                if (err){
-                    var wasPolling = self._polling;
-                    self._polling = false;
-                    return cb(wasPolling ? err : null);
+            var request = this._request = restApi.info(this.serviceUrl, function (err, res) {
+                if (err) {
+                    return cb(request.abortedManually ? null : err);
                 }
 
                 poll(self, res.serverTimestamp);
                 return cb(null);
             });
+
+            return request;
         },
 
         stopPolling: function () {
             this._polling = false;
-            this._request && this._request.abort();
+
+            if (this._request) {
+                this._request.abortedManually = true;
+                this._request.abort();
+            }
         }
     };
 

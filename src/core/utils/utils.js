@@ -237,15 +237,23 @@ var utils = (function () {
                 val;
             for (key in obj) {
                 if (obj.hasOwnProperty(key)) {
-                    if (str != '') {
+                    if (str !== '') {
                         str += '&';
                     }
                     val = obj[key];
-                    val = val == null ? '' : val;
+                    val = val === null || val === void 0 ? '' : val;
                     str += encodeURIComponent(key) + '=' + encodeURIComponent(val);
                 }
             }
             return str;
+        },
+
+        isHttpRequestSuccessfull: function (statusCode){
+            return statusCode && statusCode >= 200 && statusCode < 300 || statusCode === 304;
+        },
+
+        isRequestWithBody: function (method){
+            return method == 'POST' || method == 'PUT';
         },
 
         makeUrl: function (params) {
@@ -262,30 +270,23 @@ var utils = (function () {
             return url;
         },
 
-        serverErrorMessage: function (http) {
-            var errMsg = 'DeviceHive server error';
-            if (http.responseText) {
-                try {
-                    errMsg += ' - ' + JSON.parse(http.responseText).message;
-                }
-                catch (e) {
-                    errMsg += ' - ' + http.responseText;
-                }
-            }
-            return {error: errMsg, request: http};
-        },
-
         errorMessage: function (msg) {
             return {error: 'DeviceHive error: ' + msg};
         },
 
-        setTimeout: function (cb, delay) {
-            return setTimeout(cb, delay);
+        serverErrorMessage: function (text, json) {
+            var msg = text ? ' ' + text : ''
+            if (json && (json.message || json.Message))
+                msg += ' ' + (json.message || json.Message);
+
+            if (json && json.ExceptionMessage)
+                msg += ' ' + json.ExceptionMessage;
+
+            return 'DeviceHive server error' + (msg && ' -' + msg);
         },
 
-        clearTimeout: function (timeoutID) {
-            clearTimeout(timeoutID);
-        }
+        setTimeout: setTimeout,
+        clearTimeout: clearTimeout
     };
 
     return utils;

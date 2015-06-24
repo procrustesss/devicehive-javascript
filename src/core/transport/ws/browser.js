@@ -1,23 +1,21 @@
 var WebSocketTransport = (function () {
     'use strict';
 
-    var WebSocketTransport = utils.noop;
+    var WebSocketTransport = function () {
+        this.WebSocket = this.WebSocket || window && window.WebSocket;
+    };
 
     WebSocketTransport.requestTimeout = 10000;
 
     WebSocketTransport.prototype = {
         _handler: utils.noop,
 
-        open: function (url, cb) {
+        open: function (url, cb, WebSocketRfc) {
             cb = utils.createCallback(cb);
 
-            var notSupportedErr = utils.errorMessage('WebSockets are not supported');
-            try {
-                if (!WebSocket) {
-                    return cb(notSupportedErr);
-                }
-            } catch (e){
-                return cb(notSupportedErr);
+            var WebSocket = this.WebSocket;
+            if(!WebSocket){
+                return cb(utils.errorMessage('WebSockets are not supported'));
             }
 
             var self = this;
@@ -39,14 +37,14 @@ var WebSocketTransport = (function () {
                         utils.clearTimeout(request.timeout);
                         if (response.status && response.status == 'success') {
                             request.cb(null, response);
-                        }
-                        else {
-                            request.cb({error: response.error});
+                        } else {
+                            request.cb({
+                                error: response.error
+                            });
                         }
                         delete self._requests[response.requestId];
                     }
-                }
-                else {
+                } else {
                     self._handler(response);
                 }
             };

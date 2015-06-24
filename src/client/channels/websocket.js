@@ -22,7 +22,7 @@ var WebSocketClientChannel = (function () {
             var self = this;
             this._wsApi = new WebSocketClientApi();
 
-            self._wsApi._events.bind('onCommandUpdate', function (msg) {
+            self._wsApi._events.bind('command.update', function (msg) {
                 var command = msg.command;
                 var commandRequest = self._commandRequests[command.id];
                 if (commandRequest) {
@@ -33,7 +33,7 @@ var WebSocketClientChannel = (function () {
                 }
             });
 
-            self._wsApi._events.bind('onNotificationInsert', function (notif) {
+            self._wsApi._events.bind('notification.insert', function (notif) {
                 var subscription = utils.find(self.subscriptions, function () {
                     return this.id === notif.subscriptionId;
                 });

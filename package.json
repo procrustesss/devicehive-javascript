@@ -26,7 +26,6 @@
     "gulp": "^3.8.8",
     "gulp-concat": "^2.4.1",
     "gulp-jsdoc-to-markdown": "^1.1.1",
-    "gulp-jshint": "^1.8.5",
     "gulp-mocha": "^2.0.1",
     "gulp-rename": "^1.2.0",
     "gulp-uglify": "^1.0.1",
@@ -37,7 +36,7 @@
   },
   "browser": "build/browser/devicehive.client.js",
   "dependencies": {
-    "ws": "^0.4.25"
+    "ws": "^0.6.0"
   },
   "license": "MIT",
   "main": "build/node/devicehive.js",

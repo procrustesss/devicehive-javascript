@@ -140,7 +140,8 @@ describe('Utils tests', function(){
         });
 
         it('should return false when access key with invalid characters(-, !, #, %, *)is passed', function(){
-            expect(utils.isAccessKey('dlaSz1+bV3z-7v!Dn#7ICW%HQn*9hIuPX0KUHjlmfSY=')).to.be.false;
+            expect(utils.isAccessKey('dlaSz1+bV3z-7v!Dn#7ICW%HQn*9hIuPX0KUHjlmfSY='))
+            .to.be.false;
         });
 
         it('should return false when simple object is passed', function(){
@@ -202,20 +203,24 @@ describe('Utils tests', function(){
         });
 
         it('should pass array index as the first argument to mapper function', function(){
-            expect(utils.map(['str1', 'str2', 'str3'], function(arg){ return arg; })).to.deep.equal([0, 1, 2]);
+            expect(utils.map(['str1', 'str2', 'str3'], function(arg){ return arg; }))
+            .to.deep.equal([0, 1, 2]);
         });
 
         it('should pass initial index as the second argument to mapper function', function(){
             var initArray = ['str1'];
-            expect(utils.map(initArray, function(arg, arg2){ return arg2; })).to.deep.equal([initArray]);
+            expect(utils.map(initArray, function(arg, arg2){ return arg2; }))
+            .to.deep.equal([initArray]);
         });
 
         it('should throw TypeError if non-array object is passed as the first argument', function(){
-            expect(function(){ utils.map(undefined, function() { return this + 5; }); }).to.throw(TypeError);;
+            expect(function(){ utils.map(undefined, function() { return this + 5; }); })
+            .to.throw(TypeError);;
         });
 
         it('should throw TypeError if non-function object is passed as the second argument', function(){
-            expect(function(){ utils.map([1, 2, 3], 'lorem ipsum'); }).to.throw(TypeError);
+            expect(function(){ utils.map([1, 2, 3], 'lorem ipsum'); })
+            .to.throw(TypeError);
         });
 
         it('should return empty array if empty array is passed', function(){
@@ -336,7 +341,8 @@ describe('Utils tests', function(){
         });
 
         it('should parse given valid string into Date object', function(){
-            expect(utils.parseDate('1900/02/01/00/11/01/000')).to.deep.equal(new Date(1900, 01, 01, 0, 11, 1, 0));
+            expect(utils.parseDate('1900/02/01/00/11/01/000'))
+            .to.deep.equal(new Date(1900, 01, 01, 0, 11, 1, 0));
         });
     });
 
@@ -365,7 +371,8 @@ describe('Utils tests', function(){
         });
 
         it('should return encoded base64 string', function(){
-            expect(utils.encodeBase64('Test encodeBase64()')).to.equal('VGVzdCBlbmNvZGVCYXNlNjQoKQ==');
+            expect(utils.encodeBase64('Test encodeBase64()'))
+            .to.equal('VGVzdCBlbmNvZGVCYXNlNjQoKQ==');
         });
     });
 
@@ -382,7 +389,8 @@ describe('Utils tests', function(){
 
     describe('serializeQuery()', function(){
         it('should return query string', function(){
-            expect(utils.serializeQuery({key1: 'value1', key2: 2, key3: true})).to.equal('key1=value1&key2=2&key3=true');
+            expect(utils.serializeQuery({key1: 'value1', key2: 2, key3: true}))
+            .to.equal('key1=value1&key2=2&key3=true');
         });
         it('should return empty string', function(){
             expect(utils.serializeQuery(null)).to.equal('');
@@ -392,29 +400,48 @@ describe('Utils tests', function(){
 
     describe('makeUrl()', function(){
         it('should return valid url', function(){
-            expect(utils.makeUrl({method: 'POST', url: 'http://test.com'})).to.equal('http://test.com');
+            expect(utils.makeUrl({method: 'POST', url: 'http://test.com'}))
+            .to.equal('http://test.com');
         });
 
         it('should return valid url for GET method', function(){
-            expect(utils.makeUrl({method: 'GET', url: 'http://test.com', data: {key1: 'value1', key2: 2, key3: true}})).to.equal('http://test.com?key1=value1&key2=2&key3=true');
+            expect(utils.makeUrl({method: 'GET', url: 'http://test.com', data: {key1: 'value1', key2: 2, key3: true}}))
+            .to.equal('http://test.com?key1=value1&key2=2&key3=true');
         });
 
         it('should return valid url for GET method and url that already has params', function(){
-            expect(utils.makeUrl({method: 'GET', url: 'http://test.com?key0=value0', data: { key1: 'value1', key2: 2, key3: true }})).to.equal('http://test.com?key0=value0&key1=value1&key2=2&key3=true');
+            expect(utils.makeUrl({method: 'GET', url: 'http://test.com?key0=value0', data: { key1: 'value1', key2: 2, key3: true }}))
+            .to.equal('http://test.com?key0=value0&key1=value1&key2=2&key3=true');
         });
     });
 
     describe('serverErrorMessage()', function(){
-        it('should return error object without response text', function(){
-            expect(utils.serverErrorMessage('http://test')).to.deep.equal({error: 'DeviceHive server error', request: 'http://test'});
+        it('should return error message', function(){
+            expect(utils.serverErrorMessage()).to.equal('DeviceHive server error');
         });
 
-        it('should return error object with response text', function(){
-            expect(utils.serverErrorMessage({ url: 'http://test', responseText: 'Test reason' })).to.deep.equal({error: 'DeviceHive server error - Test reason', request: { url: 'http://test', responseText: 'Test reason' }});
+        it('should return error message with supplied text', function(){
+            expect(utils.serverErrorMessage('testError')).to.equal('DeviceHive server error - testError');
         });
 
-        it('should return error object with response json text', function(){
-            expect(utils.serverErrorMessage({ url: 'http://test', responseText: '{ "message": "Test reason"}' })).to.deep.equal({error: 'DeviceHive server error - Test reason', request: { url: 'http://test', responseText: '{ "message": "Test reason"}'}});
+        it('should return error message with the text from message (lower case "m") field', function(){
+            expect(utils.serverErrorMessage(null, { message: "testError" }))
+            .to.contain('DeviceHive server error - testError');
+        });
+
+        it('should return error message with the text from Message (upper case "M") field', function(){
+            expect(utils.serverErrorMessage(null, { Message: "testError" }))
+            .to.contain('DeviceHive server error - testError');
+        });
+
+        it('should return error message with the text from ExceptionMessage field', function(){
+            expect(utils.serverErrorMessage(null, { ExceptionMessage: "testError" }))
+            .to.contain('DeviceHive server error - testError');
+        });
+
+        it('should return error message with the text from both message and ExceptionMessage fields', function(){
+            expect(utils.serverErrorMessage(null, { message: "testError", ExceptionMessage: "testError" }))
+            .to.contain('DeviceHive server error - testError testError');
         });
     });
 

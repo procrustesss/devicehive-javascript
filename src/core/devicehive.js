@@ -8,8 +8,7 @@ var DeviceHive = (function () {
             oldState = oldState || self.channelState;
             if (oldState === self.channelState) {
                 self.channelState = newState;
-                self._events = self._events || new Events();
-                self._events.trigger('onChannelStateChanged', { oldState: oldState, newState: newState });
+                self._events.trigger('channel.state.changed', { oldState: oldState, newState: newState });
                 return true;
             }
             return false;
@@ -84,13 +83,16 @@ var DeviceHive = (function () {
      * @memberof module:Core
      * @inner
      */
-    DeviceHive = {
-        channelStates: channelStates,
-
+    var DeviceHive = function (){
         /**
          * Current channel state
          */
-        channelState: channelStates.disconnected,
+        this.channelState = channelStates.disconnected;
+        this._events = new Events();
+    };
+
+    DeviceHive.prototype = {
+        channelStates: channelStates,
 
         /**
          * Opens the first compatible communication channel to the server
@@ -204,8 +206,7 @@ var DeviceHive = (function () {
             cb = utils.createCallback(cb);
 
             var self = this;
-            this._events = this._events || new Events();
-            return this._events.bind('onChannelStateChanged', function (data) {
+            return this._events.bind('channel.state.changed', function (data) {
                 cb.call(self, data);
             });
         },
