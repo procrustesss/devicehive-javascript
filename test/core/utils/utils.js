@@ -1,6 +1,7 @@
 var fs = require('fs');
 var expect = require('chai').expect;
 var vm = require('vm');
+var sinon = require('sinon');
 
 describe('Utils tests', function(){
     vm.runInThisContext(fs.readFileSync('./src/core/utils/utils.js'));
@@ -426,10 +427,28 @@ describe('Utils tests', function(){
 
     describe('setTimeout()', function(){
         it('should set timeout with right callback and delay', function(){
-            var cb = function testCb() {};
+            var cb = function() {}
             var result = utils.setTimeout(cb, 1111);
             expect(result).to.have.property('_idleTimeout', 1111);
-            expect(result).to.have.property('_onTimeout').that.is.a('Function').and.deep.equal(cb)
+            expect(result).to.have.property('_onTimeout').that.is.a('Function').and.deep.equal(cb);
+        });
+        it('should call callback after custom timeout', function(){
+            var cb = sinon.spy();
+            var clock = sinon.useFakeTimers();
+            utils.setTimeout(cb, 1111);
+            clock.tick(1111);
+            expect(cb.calledOnce).to.be.true;
+        });
+    });
+
+    describe('clearTimeout()', function(){
+        it('should clear timeout', function(){
+            var cb = sinon.spy();
+            var clock = sinon.useFakeTimers();
+            var result = utils.setTimeout(cb, 1111);
+            utils.clearTimeout(result.id);
+            clock.tick(1111);
+            expect(cb.called).to.be.false;
         });
     });
 
