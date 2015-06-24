@@ -1,3 +1,11 @@
+/*
+* NOTE! There are a lot of methods which seems to be unnecessary on first sight but
+* that's not true. Please consider that there are some javascript environments,
+* which does not support ECMA 5 and even some features from ECMA 3.
+* A great example is Kinoma JavaScript runtime environment. There are no "setTimeout"
+* and "clearTimeout" methods and timeouts are workarounded using certain approaches.
+*/
+
 var utils = (function () {
     'use strict';
 
@@ -18,7 +26,7 @@ var utils = (function () {
         },
 
         isArrayLike: function (arr) {
-            return arr != null                    
+            return arr != null
                     && arr.length >= 0
                     && arr.length === Math.floor(arr.length);
         },
