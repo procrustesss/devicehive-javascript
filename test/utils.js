@@ -346,7 +346,7 @@ describe('Utils tests', function(){
         });
 
         it('should throw error if non-string and non-Date object was passed', function(){
-            expect(function(){ utils.formatDate(new Object()); }).to.throw(Error);
+            expect(function(){ utils.formatDate({}); }).to.throw(Error);
         });
 
         it('should return string date formatted', function(){
@@ -371,8 +371,8 @@ describe('Utils tests', function(){
 
     describe('createCallback()', function(){
         it('should return function that was passed as an argument', function(){
-            var func = function Func() {};
-            expect(utils.createCallback(func)).to.deep.equal(func);
+            var cb = function cb() {};
+            expect(utils.createCallback(cb)).to.deep.equal(cb);
         });
 
         it('should create callback function if no function was passed as an argument', function(){
