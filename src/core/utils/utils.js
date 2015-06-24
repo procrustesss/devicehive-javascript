@@ -1,3 +1,11 @@
+/*
+* NOTE! There are a lot of methods which seems to be unnecessary on first sight but
+* that's not true. Please consider that there are some javascript environments,
+* which does not support ECMA 5 and even some features from ECMA 3.
+* A great example is Kinoma JavaScript runtime environment. There are no "setTimeout"
+* and "clearTimeout" methods and timeouts are workarounded using certain approaches.
+*/
+
 var utils = (function () {
     'use strict';
 
@@ -10,7 +18,7 @@ var utils = (function () {
         },
 
         isFunction: function (val) {
-            return val && Object.prototype.toString.call(val) === '[object Function]';
+            return Object.prototype.toString.call(val) === '[object Function]';
         },
 
         isArray: Array.isArray || function (obj) {
@@ -18,7 +26,9 @@ var utils = (function () {
         },
 
         isArrayLike: function (arr) {
-            return arr && arr.length >= 0 && arr.length === Math.floor(arr.length)
+            return arr != null
+                    && arr.length >= 0
+                    && arr.length === Math.floor(arr.length);
         },
 
         isString: function (obj) {
@@ -26,7 +36,7 @@ var utils = (function () {
         },
 
         isAccessKey: function (val) {
-            return val.length === 44 && new RegExp('[A-Za-z0-9+/=]').test(val);
+            return val != null && val.length === 44 && new RegExp('^[A-Za-z0-9+/=]*$').test(val);
         },
 
         inArray: function (val, arr, ind) {
@@ -60,12 +70,12 @@ var utils = (function () {
         },
 
         map: function (array, mapper) {
-            if (!array) {
-                return array;
+            if (!utils.isArrayLike(array)) {
+                throw new TypeError(array + ' is not an array');
             }
 
             if (!utils.isFunction(mapper)) {
-                throw new TypeError(callback + ' is not a function');
+                throw new TypeError(mapper + ' is not a function');
             }
 
             var res = [];
@@ -77,8 +87,8 @@ var utils = (function () {
         },
 
         reduce: function (array, callback /*, initialValue*/) {
-            if (!array) {
-                return array;
+            if (!utils.isArrayLike(array)) {
+                throw new TypeError(array + ' is not an array');
             }
 
             if (!utils.isFunction(callback)) {
@@ -89,7 +99,7 @@ var utils = (function () {
             if (arguments.length == 3) {
                 value = arguments[2];
             } else {
-                while (k < len && !k in t) {
+                while (k < len && !(k in t)) {
                     k++;
                 }
                 if (k >= len) {

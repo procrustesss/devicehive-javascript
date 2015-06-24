@@ -233,7 +233,7 @@ dhDevice.openChannel(function(err) {
     };
     // pass the callback as a first parameter and options as a second
     // if options object was not passed subscription will listen for all commands
-    var subscription = dhClient.subscribe(function(err, subscription) {
+    var subscription = dhDevice.subscribe(function(err, subscription) {
         if (!err)
             console.log('subscribed successfully')
     }, options);
