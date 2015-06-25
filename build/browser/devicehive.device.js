@@ -7,6 +7,13 @@
     root.DHDevice = factory();
   }
 }(this, function() {
+/*
+* NOTE! For utils module there are a lot of methods which seems to be unnecessary
+* on first sight but that's not true. Please consider that there are some javascript environments,
+* which does not support ECMA 5 and even some features from ECMA 3.
+* A great example is Kinoma JavaScript runtime environment. There are no "setTimeout"
+* and "clearTimeout" methods and timeouts are workarounded using certain approaches.
+*/
 var utils = (function () {
     'use strict';
 
@@ -19,7 +26,7 @@ var utils = (function () {
         },
 
         isFunction: function (val) {
-            return val && Object.prototype.toString.call(val) === '[object Function]';
+            return Object.prototype.toString.call(val) === '[object Function]';
         },
 
         isArray: Array.isArray || function (obj) {
@@ -27,7 +34,9 @@ var utils = (function () {
         },
 
         isArrayLike: function (arr) {
-            return arr && arr.length >= 0 && arr.length === Math.floor(arr.length)
+            return arr != null
+                    && arr.length >= 0
+                    && arr.length === Math.floor(arr.length);
         },
 
         isString: function (obj) {
@@ -35,7 +44,7 @@ var utils = (function () {
         },
 
         isAccessKey: function (val) {
-            return val.length === 44 && new RegExp('[A-Za-z0-9+/=]').test(val);
+            return val != null && val.length === 44 && new RegExp('^[A-Za-z0-9+/=]*$').test(val);
         },
 
         inArray: function (val, arr, ind) {
@@ -69,12 +78,12 @@ var utils = (function () {
         },
 
         map: function (array, mapper) {
-            if (!array) {
-                return array;
+            if (!utils.isArrayLike(array)) {
+                throw new TypeError(array + ' is not an array');
             }
 
             if (!utils.isFunction(mapper)) {
-                throw new TypeError(callback + ' is not a function');
+                throw new TypeError(mapper + ' is not a function');
             }
 
             var res = [];
@@ -86,8 +95,8 @@ var utils = (function () {
         },
 
         reduce: function (array, callback /*, initialValue*/) {
-            if (!array) {
-                return array;
+            if (!utils.isArrayLike(array)) {
+                throw new TypeError(array + ' is not an array');
             }
 
             if (!utils.isFunction(callback)) {
@@ -98,7 +107,7 @@ var utils = (function () {
             if (arguments.length == 3) {
                 value = arguments[2];
             } else {
-                while (k < len && !k in t) {
+                while (k < len && !(k in t)) {
                     k++;
                 }
                 if (k >= len) {
@@ -127,6 +136,7 @@ var utils = (function () {
             if (utils.isArrayLike(obj)) {
                 var len = obj.length;
                 for (i = 0; i < len; i++) {
+                    debugger;
                     if (callback.call(obj[i], i, obj) === false) {
                         break;
                     }
@@ -236,15 +246,23 @@ var utils = (function () {
                 val;
             for (key in obj) {
                 if (obj.hasOwnProperty(key)) {
-                    if (str != '') {
+                    if (str !== '') {
                         str += '&';
                     }
                     val = obj[key];
-                    val = val == null ? '' : val;
+                    val = val === null || val === void 0 ? '' : val;
                     str += encodeURIComponent(key) + '=' + encodeURIComponent(val);
                 }
             }
             return str;
+        },
+
+        isHttpRequestSuccessfull: function (statusCode){
+            return statusCode && statusCode >= 200 && statusCode < 300 || statusCode === 304;
+        },
+
+        isRequestWithBody: function (method){
+            return method == 'POST' || method == 'PUT';
         },
 
         makeUrl: function (params) {
@@ -261,34 +279,28 @@ var utils = (function () {
             return url;
         },
 
-        serverErrorMessage: function (http) {
-            var errMsg = 'DeviceHive server error';
-            if (http.responseText) {
-                try {
-                    errMsg += ' - ' + JSON.parse(http.responseText).message;
-                }
-                catch (e) {
-                    errMsg += ' - ' + http.responseText;
-                }
-            }
-            return {error: errMsg, request: http};
-        },
-
         errorMessage: function (msg) {
             return {error: 'DeviceHive error: ' + msg};
         },
 
-        setTimeout: function (cb, delay) {
-            return setTimeout(cb, delay);
+        serverErrorMessage: function (text, json) {
+            var msg = text ? ' ' + text : ''
+            if (json && (json.message || json.Message))
+                msg += ' ' + (json.message || json.Message);
+
+            if (json && json.ExceptionMessage)
+                msg += ' ' + json.ExceptionMessage;
+
+            return 'DeviceHive server error' + (msg && ' -' + msg);
         },
 
-        clearTimeout: function (timeoutID) {
-            clearTimeout(timeoutID);
-        }
+        setTimeout: setTimeout,
+        clearTimeout: clearTimeout
     };
 
     return utils;
 }());
+
 var Events = (function () {
     'use strict';
 
@@ -407,17 +419,21 @@ var http = (function () {
             }
 
             xhr.onreadystatechange = function () {
-                var isSuccess, err;
-
                 if (xhr.readyState === 4) {
+                    var isSuccess = utils.isHttpRequestSuccessfull(xhr.status),
+                        responseObj = xhr.responseText && JSON.parse(xhr.responseText);
 
-                    isSuccess = xhr.status && xhr.status >= 200 && xhr.status < 300 || xhr.status === 304;
-                    if (!isSuccess) {
-                        err = utils.serverErrorMessage(xhr);
+                    if (isSuccess) {
+                        return cb(null, responseObj);
                     }
 
-                    var result = xhr.responseText ? JSON.parse(xhr.responseText) : null;
-                    return cb(err, result);
+                    var cbErrorMessage = utils.serverErrorMessage(xhr.responseText, responseObj);
+                    var err = {
+                        error: cbErrorMessage,
+                        request: xhr
+                    };
+
+                    return cb(err);
                 }
             };
 
@@ -433,10 +449,11 @@ var http = (function () {
                 abort: function () {
                     xhr.abort();
                 }
-            }
+            };
         }
-    }
+    };
 }());
+
 var restApi = (function () {
     'use strict';
 
@@ -855,8 +872,7 @@ var DeviceHive = (function () {
             oldState = oldState || self.channelState;
             if (oldState === self.channelState) {
                 self.channelState = newState;
-                self._events = self._events || new Events();
-                self._events.trigger('onChannelStateChanged', { oldState: oldState, newState: newState });
+                self._events.trigger('channel.state.changed', { oldState: oldState, newState: newState });
                 return true;
             }
             return false;
@@ -931,13 +947,16 @@ var DeviceHive = (function () {
      * @memberof module:Core
      * @inner
      */
-    DeviceHive = {
-        channelStates: channelStates,
-
+    var DeviceHive = function (){
         /**
          * Current channel state
          */
-        channelState: channelStates.disconnected,
+        this.channelState = channelStates.disconnected;
+        this._events = new Events();
+    };
+
+    DeviceHive.prototype = {
+        channelStates: channelStates,
 
         /**
          * Opens the first compatible communication channel to the server
@@ -1051,8 +1070,7 @@ var DeviceHive = (function () {
             cb = utils.createCallback(cb);
 
             var self = this;
-            this._events = this._events || new Events();
-            return this._events.bind('onChannelStateChanged', function (data) {
+            return this._events.bind('channel.state.changed', function (data) {
                 cb.call(self, data);
             });
         },
@@ -1205,7 +1223,7 @@ var Subscription = (function () {
         cb = utils.createCallback(cb);
 
         var self = this;
-        return this._events.bind('onStateChanged', function (data) {
+        return this._events.bind('state.changed', function (data) {
             cb.call(self, data);
         });
     };
@@ -1222,14 +1240,14 @@ var Subscription = (function () {
      */
     Subscription.prototype.message = function (cb) {
         cb = utils.createCallback(cb);
-        return this._events.bind('onMessage', cb);
+        return this._events.bind('message', cb);
     };
 
     Subscription.prototype._handleMessage = function (msg) {
         if(this.state !== Subscription.states.subscribed)
             return;
 
-        this._events.trigger.apply(this._events, ['onMessage'].concat(utils.toArray(arguments)));
+        this._events.trigger.apply(this._events, ['message'].concat(utils.toArray(arguments)))
     };
 
     Subscription.prototype._changeState = function (newState) {
@@ -1239,7 +1257,7 @@ var Subscription = (function () {
 
         var oldState = this.state;
         this.state = newState;
-        this._events.trigger('onStateChanged', { oldState: oldState, newState: newState });
+        this._events.trigger('state.changed', { oldState: oldState, newState: newState });
     };
 
     Subscription.prototype._setId = function (id) {
@@ -1385,11 +1403,14 @@ var LongPollingChannel = (function () {
 
     return LongPollingChannel;
 }());
+
 var LongPolling = (function () {
     'use strict';
 
     var poll = function (self, timestamp) {
-        var params = { timestamp: timestamp };
+        var params = {
+            timestamp: timestamp
+        };
 
         var continuePollingCb = function (err, res) {
             if (!err) {
@@ -1407,7 +1428,7 @@ var LongPolling = (function () {
 
                 poll(self, lastTimestamp || timestamp);
             } else {
-                if (self._polling) {
+                if (self._polling && !request.abortedManually) {
                     // Polling unexpectedly stopped probably connection was lost. Try reconnect in 1 second
                     utils.setTimeout(function () {
                         poll(self, timestamp);
@@ -1416,12 +1437,12 @@ var LongPolling = (function () {
             }
         };
 
-        self._request = self._polling && self._poller.executePoll(params, continuePollingCb);
+        var request = self._request = self._polling && self._poller.executePoll(params, continuePollingCb);
     };
 
     var LongPolling = function (serviceUrl, poller) {
         this.serviceUrl = serviceUrl;
-        this._poller = poller
+        this._poller = poller;
     };
 
     LongPolling.prototype = {
@@ -1431,46 +1452,49 @@ var LongPolling = (function () {
             this._polling = true;
 
             var self = this;
-            return this._request = restApi.info(this.serviceUrl, function (err, res) {
-                if (err){
-                    var wasPolling = self._polling;
-                    self._polling = false;
-                    return cb(wasPolling ? err : null);
+            var request = this._request = restApi.info(this.serviceUrl, function (err, res) {
+                if (err) {
+                    return cb(request.abortedManually ? null : err);
                 }
 
                 poll(self, res.serverTimestamp);
                 return cb(null);
             });
+
+            return request;
         },
 
         stopPolling: function () {
             this._polling = false;
-            this._request && this._request.abort();
+
+            if (this._request) {
+                this._request.abortedManually = true;
+                this._request.abort();
+            }
         }
     };
 
     return LongPolling;
 }());
+
 var WebSocketTransport = (function () {
     'use strict';
 
-    var WebSocketTransport = utils.noop;
+    var WebSocketTransport = function () {
+        this.WebSocket = this.WebSocket || window && window.WebSocket;
+    };
 
     WebSocketTransport.requestTimeout = 10000;
 
     WebSocketTransport.prototype = {
         _handler: utils.noop,
 
-        open: function (url, cb) {
+        open: function (url, cb, WebSocketRfc) {
             cb = utils.createCallback(cb);
 
-            var notSupportedErr = utils.errorMessage('WebSockets are not supported');
-            try {
-                if (!WebSocket) {
-                    return cb(notSupportedErr);
-                }
-            } catch (e){
-                return cb(notSupportedErr);
+            var WebSocket = this.WebSocket;
+            if(!WebSocket){
+                return cb(utils.errorMessage('WebSockets are not supported'));
             }
 
             var self = this;
@@ -1492,14 +1516,14 @@ var WebSocketTransport = (function () {
                         utils.clearTimeout(request.timeout);
                         if (response.status && response.status == 'success') {
                             request.cb(null, response);
-                        }
-                        else {
-                            request.cb({error: response.error});
+                        } else {
+                            request.cb({
+                                error: response.error
+                            });
                         }
                         delete self._requests[response.requestId];
                     }
-                }
-                else {
+                } else {
                     self._handler(response);
                 }
             };
@@ -1556,6 +1580,7 @@ var WebSocketTransport = (function () {
 
     return WebSocketTransport;
 }());
+
 var WebSocketClientApi = (function () {
     'use strict';
 
@@ -1565,15 +1590,15 @@ var WebSocketClientApi = (function () {
         this._transport = new WebSocketTransport();
         this._transport.message(function (response) {
             if (response.action == 'command/insert' && response.command && response.command.id) {
-                events.trigger('onCommandInsert', response);
+                events.trigger('command.insert', response);
             }
 
             if (response.action == 'command/update') {
-                events.trigger('onCommandUpdate', response);
+                events.trigger('command.update', response);
             }
 
             if (response.action == 'notification/insert' && response.deviceGuid && response.notification) {
-                events.trigger('onNotificationInsert', response);
+                events.trigger('notification.insert', response);
             }
         });
     };
@@ -1624,6 +1649,7 @@ var WebSocketClientApi = (function () {
 
     return WebSocketClientApi;
 }());
+
 var WebSocketDeviceApi = (function () {
     'use strict';
 
@@ -1633,7 +1659,7 @@ var WebSocketDeviceApi = (function () {
         this._transport = new WebSocketTransport();
         this._transport.message(function (response) {
             if (response.action == 'command/insert' && response.command && response.command.id) {
-                events.trigger('onCommandInsert', response);
+                events.trigger('command.insert', response);
             }
         });
     };
@@ -1674,6 +1700,7 @@ var WebSocketDeviceApi = (function () {
 
     return WebSocketDeviceApi;
 }());
+
 var LongPollingDeviceChannel = (function () {
     'use strict';
 
@@ -1743,14 +1770,14 @@ var WebSocketDeviceChannel = (function () {
                 ? new WebSocketDeviceApi()
                 : new WebSocketClientApi();
 
-            this._wsApi._events.bind('onCommandInsert', function (cmd) {
+            this._wsApi._events.bind('command.insert', function (cmd) {
                 var subscriptionsToHandle = self.subscriptions;
 
                 if(!self.compatibilityMode){
                     subscriptionsToHandle = utils.find(self.subscriptions, function () {
                         return this.id === cmd.subscriptionId;
                     });
-                    subscriptionsToHandle = [subscriptionsToHandle];
+                    subscriptionsToHandle = subscriptionsToHandle && [subscriptionsToHandle];
                 }
 
                 utils.forEach(subscriptionsToHandle, function(){
@@ -1823,6 +1850,7 @@ var WebSocketDeviceChannel = (function () {
 
     return WebSocketDeviceChannel;
 }());
+
 var DHDevice = (function () {
     'use strict';
 
@@ -1855,7 +1883,7 @@ var DHDevice = (function () {
         }
     };
 
-    DHDevice.prototype = DeviceHive;
+    DHDevice.prototype = new DeviceHive();
     DHDevice.constructor = DHDevice;
 
     /**
@@ -1975,7 +2003,7 @@ var DHDevice = (function () {
      * @param {Object} device - Current device information
      */
 
-    var oldSubscribe = DeviceHive.subscribe;
+    var oldSubscribe = DHDevice.prototype.subscribe;
     /**
      * Subscribes to device commands and returns a subscription object
      * Use subscription object to bind to a 'new command received' event
@@ -2038,7 +2066,7 @@ var DHDevice = (function () {
      * @memberof DHDevice
      * @borrows module:Core~DeviceHive.channelStates
      */
-    DHDevice.channelStates = DeviceHive.channelStates;
+    DHDevice.channelStates = DHDevice.prototype.channelStates;
 
     /**
      * DHDevice subscription states

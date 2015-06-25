@@ -7,6 +7,13 @@
     root.Main = factory();
   }
 }(this, function() {
+/*
+* NOTE! For utils module there are a lot of methods which seems to be unnecessary
+* on first sight but that's not true. Please consider that there are some javascript environments,
+* which does not support ECMA 5 and even some features from ECMA 3.
+* A great example is Kinoma JavaScript runtime environment. There are no "setTimeout"
+* and "clearTimeout" methods and timeouts are workarounded using certain approaches.
+*/
 var utils = (function () {
     'use strict';
 
@@ -19,7 +26,7 @@ var utils = (function () {
         },
 
         isFunction: function (val) {
-            return val && Object.prototype.toString.call(val) === '[object Function]';
+            return Object.prototype.toString.call(val) === '[object Function]';
         },
 
         isArray: Array.isArray || function (obj) {
@@ -27,7 +34,9 @@ var utils = (function () {
         },
 
         isArrayLike: function (arr) {
-            return arr && arr.length >= 0 && arr.length === Math.floor(arr.length)
+            return arr != null
+                    && arr.length >= 0
+                    && arr.length === Math.floor(arr.length);
         },
 
         isString: function (obj) {
@@ -35,7 +44,7 @@ var utils = (function () {
         },
 
         isAccessKey: function (val) {
-            return val.length === 44 && new RegExp('[A-Za-z0-9+/=]').test(val);
+            return val != null && val.length === 44 && new RegExp('^[A-Za-z0-9+/=]*$').test(val);
         },
 
         inArray: function (val, arr, ind) {
@@ -69,12 +78,12 @@ var utils = (function () {
         },
 
         map: function (array, mapper) {
-            if (!array) {
-                return array;
+            if (!utils.isArrayLike(array)) {
+                throw new TypeError(array + ' is not an array');
             }
 
             if (!utils.isFunction(mapper)) {
-                throw new TypeError(callback + ' is not a function');
+                throw new TypeError(mapper + ' is not a function');
             }
 
             var res = [];
@@ -86,8 +95,8 @@ var utils = (function () {
         },
 
         reduce: function (array, callback /*, initialValue*/) {
-            if (!array) {
-                return array;
+            if (!utils.isArrayLike(array)) {
+                throw new TypeError(array + ' is not an array');
             }
 
             if (!utils.isFunction(callback)) {
@@ -98,7 +107,7 @@ var utils = (function () {
             if (arguments.length == 3) {
                 value = arguments[2];
             } else {
-                while (k < len && !k in t) {
+                while (k < len && !(k in t)) {
                     k++;
                 }
                 if (k >= len) {
@@ -127,6 +136,7 @@ var utils = (function () {
             if (utils.isArrayLike(obj)) {
                 var len = obj.length;
                 for (i = 0; i < len; i++) {
+                    debugger;
                     if (callback.call(obj[i], i, obj) === false) {
                         break;
                     }
@@ -274,19 +284,18 @@ var utils = (function () {
         },
 
         serverErrorMessage: function (text, json) {
-            var msg = text && json && (json.message || json.Message);
-            msg += json && json.ExceptionMessage && (' ' + json.ExceptionMessage);
+            var msg = text ? ' ' + text : ''
+            if (json && (json.message || json.Message))
+                msg += ' ' + (json.message || json.Message);
 
-            return 'DeviceHive server error' + (msg && ' - ' + msg);
+            if (json && json.ExceptionMessage)
+                msg += ' ' + json.ExceptionMessage;
+
+            return 'DeviceHive server error' + (msg && ' -' + msg);
         },
 
-        setTimeout: function (cb, delay) {
-            return setTimeout(cb, delay);
-        },
-
-        clearTimeout: function (timeoutID) {
-            clearTimeout(timeoutID);
-        }
+        setTimeout: setTimeout,
+        clearTimeout: clearTimeout
     };
 
     return utils;
@@ -1164,10 +1173,10 @@ var Subscription = (function () {
     'use strict';
 
     /**
-     * Subscription object constructor
-     *
      * @class
-     * @private
+     * @classdesc Subscription object constructor
+     * @memberof module:Core
+     * @inner
      */
     var Subscription = function (deviceIds, names, onMessage) {
         if (deviceIds && !utils.isArray(deviceIds)) {
@@ -1188,20 +1197,15 @@ var Subscription = (function () {
     };
 
     /**
-     * @callback subscriptionStateChangedCb
-     * @param {DHError} err - An error object if any errors occurred
-     * @param {State} state - A channel state object
-     */
-
-    /**
-     * @callback messageReceivedCb
-     * @param {Object} message - Received message
+     * @callback Subscription~subscriptionStateChangedCb
+     * @param {module:Core~DHError} err - An error object if any errors occurred
+     * @param {module:Core~DeviceHive~State} state - A channel state object
      */
 
     /**
      * Adds a callback that will be invoked when the subscription state is changed
      *
-     * @param {subscriptionStateChangedCb} cb - The callback that handles an event
+     * @param {Subscription~subscriptionStateChangedCb} cb - The callback that handles an event
      */
     Subscription.prototype.stateChanged = function (cb) {
         cb = utils.createCallback(cb);
@@ -1213,9 +1217,14 @@ var Subscription = (function () {
     };
 
     /**
+     * @callback Subscription~messageReceivedCb
+     * @param {Object} message - Received message
+     */
+
+    /**
      * Adds a callback that will be invoked when a message is received
      *
-     * @param {messageReceivedCb} cb - The callback that handles an event
+     * @param {Subscription~messageReceivedCb} cb - The callback that handles an event
      */
     Subscription.prototype.message = function (cb) {
         cb = utils.createCallback(cb);
@@ -1264,6 +1273,9 @@ var Subscription = (function () {
     return Subscription;
 }());
 
+/**
+ * @module Core
+ */
 var DeviceHive = (function () {
     'use strict';
 
@@ -1291,6 +1303,7 @@ var DeviceHive = (function () {
      * DeviceHive channel states
      * @readonly
      * @enum {number}
+     * @memberof module:Core~DeviceHive
      */
     var channelStates = {
         /** channel is not connected */
@@ -1302,37 +1315,37 @@ var DeviceHive = (function () {
     };
 
     /**
-     * @callback openChannelCb
+     * @callback DeviceHive~openChannelCb
      * @param {DHError} err - An error object if any errors occurred
      * @param {Object} channel - A name of the opened channel
      */
 
     /**
-     * @typedef {Object} State
+     * @typedef {Object} DeviceHive~State
      * @property {Number} oldState - previous state
      * @property {Number} newState - current state
      */
 
     /**
-     * @callback channelStateChangedCb
+     * @callback DeviceHive~channelStateChangedCb
      * @param {DHError} err - An error object if any errors occurred
      * @param {State} state - A channel state object
      */
 
     /**
-     * @callback subscribeCb
+     * @callback DeviceHive~subscribeCb
      * @param {DHError} err - An error object if any errors occurred
-     * @param {Subscription} subscription - added subscription object
+     * @param {module:Core~Subscription} subscription - added subscription object
      */
 
     /**
-     * @callback unsubscribeCb
+     * @callback DeviceHive~unsubscribeCb
      * @param {DHError} err - An error object if any errors occurred
-     * @param {Subscription} subscription - removed subscription object
+     * @param {module:Core~Subscription} subscription - removed subscription object
      */
 
     /**
-     * @typedef {Object} SubscribeParameters
+     * @typedef {Object} DeviceHive~SubscribeParameters
      * @property {function} onMessage - a callback that will be invoked when a message is received
      * @property {(Array | String)} deviceIds - single device identifier, array of identifiers or null (subscribe to all devices)
      * @property {(Array | String)} names - notification name, array of notifications or null (subscribe to all notifications)
@@ -1340,6 +1353,10 @@ var DeviceHive = (function () {
 
     /**
      * Core DeviceHive class
+     *
+     * @mixin DeviceHive
+     * @memberof module:Core
+     * @inner
      */
     var DeviceHive = function (){
         /**
@@ -1355,7 +1372,8 @@ var DeviceHive = (function () {
         /**
          * Opens the first compatible communication channel to the server
          *
-         * @param {openChannelCb} cb - The callback that handles the response
+         * @memberof module:Core~DeviceHive
+         * @param {DeviceHive~openChannelCb} cb - The callback that handles the response
          * @param {(Array | String)} [channels = null] - Channel names to open. Default supported channels: 'websocket', 'longpolling'
          */
         openChannel: function (cb, channels) {
@@ -1425,7 +1443,8 @@ var DeviceHive = (function () {
         /**
          * Closes the communications channel to the server
          *
-         * @param {noDataCallback} cb - The callback that handles the response
+         * @memberof module:Core~DeviceHive
+         * @param {module:Core~noDataCallback} cb - The callback that handles the response
          */
         closeChannel: function (cb) {
             cb = utils.createCallback(cb);
@@ -1455,7 +1474,8 @@ var DeviceHive = (function () {
         /**
          * Adds a callback that will be invoked when the communication channel state is changed
          *
-         * @param {channelStateChangedCb} cb - The callback that handles an event
+         * @memberof module:Core~DeviceHive
+         * @param {DeviceHive~channelStateChangedCb} cb - The callback that handles an event
          */
         channelStateChanged: function (cb) {
             cb = utils.createCallback(cb);
@@ -1470,9 +1490,10 @@ var DeviceHive = (function () {
         /**
          * Subscribes to messages and return a subscription object
          *
-         * @param {subscribeCb} cb - The callback that handles the response
-         * @param {SubscribeParameters} [params = null] - Subscription parameters
-         * @return {Subscription} - Added subscription object
+         * @memberof module:Core~DeviceHive
+         * @param {DeviceHive~subscribeCb} cb - The callback that handles the response
+         * @param {DeviceHive~SubscribeParameters} [params = null] - Subscription parameters
+         * @return {module:Core~Subscription} - Added subscription object
          */
         subscribe: function (cb, params) {
             this._ensureConnectedState();
@@ -1502,9 +1523,10 @@ var DeviceHive = (function () {
         /**
          * Remove subscription to messages
          *
-         * @param {(String | Subscription)} subscriptionOrId - Identifier of the subscription or subscription object returned by subscribe method
-         * @param {unsubscribeCb} cb - The callback that handles the response
-         * @return {Subscription} - Added subscription object
+         * @memberof module:Core~DeviceHive
+         * @param {(String | module:Core~Subscription)} subscriptionOrId - Identifier of the subscription or subscription object returned by subscribe method
+         * @param {DeviceHive~unsubscribeCb} cb - The callback that handles the response
+         * @return {module:Core~Subscription} - Added subscription object
          * @throws Will throw an error if subscriptionId was not found
          */
         unsubscribe: function (subscriptionOrId, cb) {
@@ -1554,7 +1576,7 @@ var DeviceHive = (function () {
 /**
  * A callback function which is executed when an operation has been completed
  * @callback noDataCallback
- * @param {DHError} err - An error object if any errors occurred
+ * @param {module:Core~DHError} err - An error object if any errors occurred
  */
 
 /**
@@ -1784,6 +1806,7 @@ var LongPollingClientChannel = (function () {
 
     return LongPollingClientChannel;
 }());
+
 var WebSocketClientChannel = (function () {
     'use strict';
 
@@ -2064,7 +2087,7 @@ var DHClient = (function () {
      *
      * @class
      * @global
-     * @augments DeviceHive
+     * @mixes module:Core~DeviceHive
      * @param {String} serviceUrl - DeviceHive cloud API url
      * @param {String} loginOrKey - User's login name or access key
      * @param {String} password - User's password. If access key authentication is used this argument should be omitted
@@ -2089,7 +2112,7 @@ var DHClient = (function () {
     /**
      * Get Networks request filtering parameters
      *
-     * @typedef {Object} NetworksFilter
+     * @typedef {Object} DHClient~NetworksFilter
      * @property {String} name - filter by network name
      * @property {String} namePattern - filter by network name pattern
      * @property {String} sortField - result list sort field: ID or Name
@@ -2098,17 +2121,18 @@ var DHClient = (function () {
      */
 
     /**
-     * @callback getNetworksCb
-     * @param {DHError} err - an error object if any errors occurred
+     * @callback DHClient~getNetworksCb
+     * @param {module:Core~DHError} err - an error object if any errors occurred
      * @param {Array} networks - an array of requested networks
      */
 
     /**
      * Gets a list of networks
      *
-     * @param {NetworksFilter} filter - Networks filter
-     * @param {getNetworksCb} cb - The callback that handles the response
-     * @returns {Http} - current http request
+     * @memberof DHClient
+     * @param {DHClient~NetworksFilter} filter - Networks filter
+     * @param {DHClient~getNetworksCb} cb - The callback that handles the response
+     * @returns {module:Core~Http} - current module:Core~Http request
      */
     DHClient.prototype.getNetworks = function (filter, cb) {
         cb = utils.createCallback(cb);
@@ -2117,17 +2141,18 @@ var DHClient = (function () {
 
 
     /**
-     * @callback getNetworkCb
-     * @param {DHError} err - An error object if any errors occurred
+     * @callback DHClient~getNetworkCb
+     * @param {module:Core~DHError} err - An error object if any errors occurred
      * @param {Object} network - Requested network information
      */
 
     /**
      * Gets information about the network and associated devices
      *
+     * @memberof DHClient
      * @param {String} networkId - Network identifier
-     * @param {getNetworkCb} cb - The callback that handles the response
-     * @returns {Http} - current http request
+     * @param {DHClient~getNetworkCb} cb - The callback that handles the response
+     * @returns {module:Core~Http} - current module:Core~Http request
      */
     DHClient.prototype.getNetwork = function (networkId, cb) {
         cb = utils.createCallback(cb);
@@ -2138,7 +2163,7 @@ var DHClient = (function () {
     /**
      * Get Devices request filtering parameters
      *
-     * @typedef {Object} DevicesFilter
+     * @typedef {Object} DHClient~DevicesFilter
      * @property {String} name - filter by device name
      * @property {String} namePattern - filter by device name pattern
      * @property {String} status - filter by device status
@@ -2154,17 +2179,18 @@ var DHClient = (function () {
      */
 
     /**
-     * @callback getDevicesCb
-     * @param {DHError} err - an error object if any errors occurred
+     * @callback DHClient~getDevicesCb
+     * @param {module:Core~DHError} err - an error object if any errors occurred
      * @param {Array} devices - an array of requested devices
      */
 
     /**
      * Gets a list of devices
      *
-     * @param {DevicesFilter} filter - Devices filter
-     * @param {getDevicesCb} cb - The callback that handles the response
-     * @returns {Http} - current http request
+     * @memberof DHClient
+     * @param {DHClient~DevicesFilter} filter - Devices filter
+     * @param {DHClient~getDevicesCb} cb - The callback that handles the response
+     * @returns {module:Core~Http} - current module:Core~Http request
      */
     DHClient.prototype.getDevices = function (filter, cb) {
         cb = utils.createCallback(cb);
@@ -2173,17 +2199,18 @@ var DHClient = (function () {
 
 
     /**
-     * @callback getDeviceCb
-     * @param {DHError} err - An error object if any errors occurred
+     * @callback DHClient~getDeviceCb
+     * @param {module:Core~DHError} err - An error object if any errors occurred
      * @param {Object} device - Requested device information
      */
 
     /**
      * Gets information about the device
      *
+     * @memberof DHClient
      * @param {String} deviceId - Device identifier
-     * @param {getDeviceCb} cb - The callback that handles the response
-     * @returns {Http} - current http request
+     * @param {DHClient~getDeviceCb} cb - The callback that handles the response
+     * @returns {module:Core~Http} - current module:Core~Http request
      */
     DHClient.prototype.getDevice = function (deviceId, cb) {
         cb = utils.createCallback(cb);
@@ -2191,40 +2218,42 @@ var DHClient = (function () {
     };
 
     /**
-     * @callback getDeviceClassCb
-     * @param {DHError} err - An error object if any errors occurred
+     * @callback DHClient~getDeviceClassCb
+     * @param {module:Core~DHError} err - An error object if any errors occurred
      * @param {Object} deviceClass - Requested device class information
      */
 
     /**
      * Gets information about a device class and associated equipment
      *
+     * @memberof DHClient
      * @param {String} deviceClassId - Device Class identifier
-     * @param {getDeviceClassCb} cb - The callback that handles the response
+     * @param {DHClient~getDeviceClassCb} cb - The callback that handles the response
      * @throws Will throw an error if user's credentials are not used as an authentication mechanism
-     * @returns {Http} - current http request
+     * @returns {module:Core~Http} - current module:Core~Http request
      */
     DHClient.prototype.getDeviceClass = function (deviceClassId, cb) {
         cb = utils.createCallback(cb);
         if (!this.auth.login) {
-            throw new Error('DeviceHive: DHClient should be created with username and password credentials to get device class information')
+            throw new Error('DeviceHive: DHClient should be created with username and password credentials to get device class information');
         }
         return this._executeApi(restApi.getDeviceClass, [deviceClassId, cb]);
     };
 
 
     /**
-     * @callback getEquipmentStateCb
-     * @param {DHError} err - An error object if any errors occurred
+     * @callback DHClient~getEquipmentStateCb
+     * @param {module:Core~DHError} err - An error object if any errors occurred
      * @param {Array} equipmentState - Requested array of equipment states for the specified device
      */
 
     /**
      * Gets a list of device equipment states (current state of device equipment)
      *
+     * @memberof DHClient
      * @param {String} deviceId - Device identifier
-     * @param {getEquipmentStateCb} cb - The callback that handles the response
-     * @returns {Http} - current http request
+     * @param {DHClient~getEquipmentStateCb} cb - The callback that handles the response
+     * @returns {module:Core~Http} - current module:Core~Http request
      */
     DHClient.prototype.getEquipmentState = function (deviceId, cb) {
         cb = utils.createCallback(cb);
@@ -2235,7 +2264,7 @@ var DHClient = (function () {
     /**
      * Get Notifications request filtering parameters
      *
-     * @typedef {Object} NotificationsFilter
+     * @typedef {Object} DHClient~NotificationsFilter
      * @property {Date} start - filter by notification start timestamp (inclusive, UTC)
      * @property {Date} end - filter by notification end timestamp (inclusive, UTC)
      * @property {String} notification - filter by notification name
@@ -2247,18 +2276,19 @@ var DHClient = (function () {
      */
 
     /**
-     * @callback getNotificationsCb
-     * @param {DHError} err - an error object if any errors occurred
+     * @callback DHClient~getNotificationsCb
+     * @param {module:Core~DHError} err - an error object if any errors occurred
      * @param {Array} notifications - an array of requested notifications
      */
 
     /**
      * Gets a list of notifications generated by the device
      *
+     * @memberof DHClient
      * @param {String} deviceId - Device identifier
-     * @param {NotificationsFilter} filter - Notification filter
-     * @param {getNotificationsCb} cb - The callback that handles the response
-     * @returns {Http} - current http request
+     * @param {DHClient~NotificationsFilter} filter - Notification filter
+     * @param {DHClient~getNotificationsCb} cb - The callback that handles the response
+     * @returns {module:Core~Http} - current module:Core~Http request
      */
     DHClient.prototype.getNotifications = function (deviceId, filter, cb) {
         cb = utils.createCallback(cb);
@@ -2266,18 +2296,19 @@ var DHClient = (function () {
     };
 
     /**
-     * @callback getNotificationCb
-     * @param {DHError} err - An error object if any errors occurred
+     * @callback DHClient~getNotificationCb
+     * @param {module:Core~DHError} err - An error object if any errors occurred
      * @param {Object} notification - Requested notification information
      */
 
     /**
      * Gets information about a device class and associated equipment
      *
+     * @memberof DHClient
      * @param {String} deviceId - Device identifier
      * @param {Number} notificationId - Notification identifier
-     * @param {getNotificationCb} cb - The callback that handles the response
-     * @returns {Http} - current http request
+     * @param {DHClient~getNotificationCb} cb - The callback that handles the response
+     * @returns {module:Core~Http} - current module:Core~Http request
      */
     DHClient.prototype.getNotification = function (deviceId, notificationId, cb) {
         cb = utils.createCallback(cb);
@@ -2288,7 +2319,7 @@ var DHClient = (function () {
     /**
      * Gets a list of commands previously sent to the device
      *
-     * @typedef {Object} CommandsFilter
+     * @typedef {Object} DHClient~CommandsFilter
      * @property {Date}   start - filter by command start timestamp (inclusive, UTC)
      * @property {Date}   end - filter by command end timestamp (inclusive, UTC)
      * @property {String} command - filter by command name
@@ -2300,18 +2331,19 @@ var DHClient = (function () {
      */
 
     /**
-     * @callback getCommandsCb
-     * @param {DHError} err - an error object if any errors occurred
+     * @callback DHClient~getCommandsCb
+     * @param {module:Core~DHError} err - an error object if any errors occurred
      * @param {Array} commands - an array of requested commands
      */
 
     /**
      * Gets a list of notifications generated by the device
      *
+     * @memberof DHClient
      * @param {String} deviceId - Device identifier
-     * @param {CommandsFilter} filter - Notification filter
-     * @param {getCommandsCb} cb - The callback that handles the response
-     * @returns {Http} - current http request
+     * @param {DHClient~CommandsFilter} filter - Notification filter
+     * @param {DHClient~getCommandsCb} cb - The callback that handles the response
+     * @returns {module:Core~Http} - current module:Core~Http request
      */
     DHClient.prototype.getCommands = function (deviceId, filter, cb) {
         cb = utils.createCallback(cb);
@@ -2319,18 +2351,19 @@ var DHClient = (function () {
     };
 
     /**
-     * @callback getCommandCb
-     * @param {DHError} err - An error object if any errors occurred
+     * @callback DHClient~getCommandCb
+     * @param {module:Core~DHError} err - An error object if any errors occurred
      * @param {Object} command - requested command information
      */
 
     /**
      * Gets information about a device command
      *
+     * @memberof DHClient
      * @param {String} deviceId - Device identifier
      * @param {Number} commandId - Notification identifier
-     * @param {getCommandCb} cb - The callback that handles the response
-     * @returns {Http} - current http request
+     * @param {DHClient~getCommandCb} cb - The callback that handles the response
+     * @returns {module:Core~Http} - current module:Core~Http request
      */
     DHClient.prototype.getCommand = function (deviceId, commandId, cb) {
         cb = utils.createCallback(cb);
@@ -2339,22 +2372,23 @@ var DHClient = (function () {
 
 
     /**
-     * @callback getCurrentUserCb
-     * @param {DHError} err - An error object if any errors occurred
+     * @callback DHClient~getCurrentUserCb
+     * @param {module:Core~DHError} err - An error object if any errors occurred
      * @param {Object} user - information about the current user
      */
 
     /**
      * Gets information about the logged-in user and associated networks
      *
-     * @param {getCurrentUserCb} cb - The callback that handles the response
+     * @memberof DHClient
+     * @param {DHClient~getCurrentUserCb} cb - The callback that handles the response
      * @throws Will throw an Error if an access key is used as an authentication mechanism
-     * @returns {Http} - current http request
+     * @returns {module:Core~Http} - current module:Core~Http request
      */
     DHClient.prototype.getCurrentUser = function (cb) {
         cb = utils.createCallback(cb);
         if (!this.auth.login) {
-            throw new Error('DeviceHive: DHClient should be created with username and password credentials to get current user information')
+            throw new Error('DeviceHive: DHClient should be created with username and password credentials to get current user information');
         }
         return this._executeApi(restApi.getCurrentUser, [cb]);
     };
@@ -2362,52 +2396,54 @@ var DHClient = (function () {
     /**
      * Updates information for the current user
      *
+     * @memberof DHClient
      * @param {Object} user - User info
-     * @param {noDataCallback} cb - The callback that handles the response
+     * @param {module:Core~noDataCallback} cb - The callback that handles the response
      * @throws Will throw an Error if an access key is used as an authentication mechanism
-     * @returns {Http} - current http request
+     * @returns {module:Core~Http} - current module:Core~Http request
      */
     DHClient.prototype.updateCurrentUser = function (user, cb) {
         cb = utils.createCallback(cb);
         if (!this.auth.login) {
-            throw new Error('DeviceHive: DHClient should be created with username and password credentials to update current user')
+            throw new Error('DeviceHive: DHClient should be created with username and password credentials to update current user');
         }
         return this._executeApi(restApi.updateCurrentUser, [user, cb]);
     };
 
     /**
-     * @typedef {Object} SendCommandResult
-     * @property {commandResult} result - Waits for the command to be completed
+     * @typedef {Object} DHClient~SendCommandResult
+     * @property {DHClient~commandResult} result - Waits for the command to be completed
      */
 
     /**
      * Wait for result function
-     * @typedef {function} commandResult
+     * @typedef {function} DHClient~commandResult
      * @param {commandResultCallback} cb
-     * @param {Number} waitTimeout - Time to wait for the result in seconds. Default = 30 seconds. Maximum for longpolling channel = 60 seconds
+     * @param {Number} waitTimeout - Timestamp to wait for the result in seconds. Default = 30 seconds. Maximum for longpolling channel = 60 seconds
      */
 
     /**
      * A callback function which is executed when the device has processed a command and has sent the result to the DeviceHive cloud
-     * @callback commandResultCallback
-     * @param {DHError} err - An error object if any errors occurred
+     * @callback DHClient~commandResultCallback
+     * @param {module:Core~DHError} err - An error object if any errors occurred
      * @param {Object} res - Processing result of the command
      */
 
     /**
-     * @callback sendCommandCb
-     * @param {DHError} err - An error object if any errors occurred
+     * @callback DHClient~sendCommandCb
+     * @param {module:Core~DHError} err - An error object if any errors occurred
      * @param {Object} cmd - Already sent command
      */
 
     /**
      * Sends a new command to the device
      *
+     * @memberof DHClient
      * @param {String} deviceId - Device identifier
      * @param {String} command - Command name
      * @param {Object} parameters - Command parameters
-     * @param {sendCommandCb} cb - The callback that handles the response
-     * @returns {SendCommandResult}
+     * @param {DHClient~sendCommandCb} cb - The callback that handles the response
+     * @returns {DHClient~SendCommandResult}
      */
     DHClient.prototype.sendCommand = function (deviceId, command, parameters, cb) {
         cb = utils.createCallback(cb);
@@ -2417,7 +2453,7 @@ var DHClient = (function () {
 
     DHClient.prototype._executeApi = function (endpoint, args) {
         var endpointParams = [this.serviceUrl, this.auth].concat(args);
-        return endpoint.apply(null, endpointParams)
+        return endpoint.apply(null, endpointParams);
     };
 
     DHClient.prototype._channels = {};
@@ -2426,13 +2462,15 @@ var DHClient = (function () {
 
     /**
      * DHClient channel states
-     * @borrows DeviceHive#channelStates
+     * @memberof DHClient
+     * @borrows module:Core~DeviceHive.channelStates
      */
     DHClient.channelStates = DHClient.prototype.channelStates;
 
     /**
      * DHClient subscription states
-     * @borrows Subscription#states
+     * @memberof DHClient
+     * @borrows module:Core~Subscription.states
      */
     DHClient.subscriptionStates = Subscription.states;
 
@@ -2451,7 +2489,7 @@ var DHDevice = (function () {
      *
      * @class
      * @global
-     * @augments DeviceHive
+     * @mixes module:Core~DeviceHive
      * @param {String} serviceUrl - DeviceHive cloud API url
      * @param {String} deviceId - Device unique identifier
      * @param {String} accessKeyOrDeviceKey - Access key or device key (device key is deprecated) used for auth
@@ -2475,16 +2513,17 @@ var DHDevice = (function () {
     DHDevice.constructor = DHDevice;
 
     /**
-     * @callback getDeviceCb
-     * @param {DHError} err - An error object if any errors occurred
+     * @callback DHDevice~getDeviceCb
+     * @param {module:Core~module:Core~DHError} err - An error object if any errors occurred
      * @param {Object} device - Current device information
      */
 
     /**
      * Gets information about the current device
      *
-     * @param {getDeviceCb} cb - The callback that handles the response
-     * @returns {Http} - Current http request
+     * @memberof DHDevice
+     * @param {DHDevice~getDeviceCb} cb - The callback that handles the response
+     * @returns {module:Core~Http} - Current module:Core~Http request
      */
     DHDevice.prototype.getDevice = function (cb) {
         cb = utils.createCallback(cb);
@@ -2496,9 +2535,10 @@ var DHDevice = (function () {
      * Registers a device in the DeviceHive network with the current device id
      * device key will be implicitly added if specified as an authentication parameter
      *
+     * @memberof DHDevice
      * @param {Object} device - Device parameters
-     * @param {noDataCallback} cb - The callback that handles the response
-     * @returns {Http} - Current http request
+     * @param {module:Core~noDataCallback} cb - The callback that handles the response
+     * @returns {module:Core~Http} - Current module:Core~Http request
      */
     DHDevice.prototype.registerDevice = function (device, cb) {
         cb = utils.createCallback(cb);
@@ -2518,9 +2558,10 @@ var DHDevice = (function () {
     /**
      * Updates a device in the DeviceHive network with the current device id
      *
+     * @memberof DHDevice
      * @param {Object} device - Device parameters
-     * @param {noDataCallback} cb - The callback that handles the response
-     * @returns {Http} - Current http request
+     * @param {module:Core~noDataCallback} cb - The callback that handles the response
+     * @returns {module:Core~Http} - Current module:Core~Http request
      */
     DHDevice.prototype.updateDevice = function (device, cb) {
         cb = utils.createCallback(cb);
@@ -2531,10 +2572,11 @@ var DHDevice = (function () {
     /**
      * Sends new notification to the client
      *
+     * @memberof DHDevice
      * @param {String} notification - Notification name
      * @param {Object} params - Notification parameters
-     * @param {noDataCallback} cb - The callback that handles the response
-     * @returns {Http} - Current http request
+     * @param {module:Core~noDataCallback} cb - The callback that handles the response
+     * @returns {module:Core~Http} - Current module:Core~Http request
      */
     DHDevice.prototype.sendNotification = function (notification, params, cb) {
         cb = utils.createCallback(cb);
@@ -2548,42 +2590,42 @@ var DHDevice = (function () {
 
 
     /**
-     * @callback notificationSubscribeCb
-     * @param {DHError} err - An error object if any errors occurred
-     * @param {NotificationSubscription} subscription - added subscription object
+     * @callback DHDevice~notificationSubscribeCb
+     * @param {module:Core~module:Core~DHError} err - An error object if any errors occurred
+     * @param {DHDevice~NotificationSubscription} subscription - added subscription object
      */
 
     /**
-     * @typedef {Object} NotificationSubscribeParameters
+     * @typedef {Object} DHDevice~NotificationSubscribeParameters
      * @property {function} onMessage - initial callback that will be invoked when a command is received
      * @property {(Array | String)} names - notification name, array of notifications or null (subscribe to all notifications)
      */
 
     /**
-     * @typedef {Subscription} NotificationSubscription
-     * @property {notificationReceivedCb} cb - a callback that will be invoked when a command is received
+     * @typedef {Subscription} DHDevice~NotificationSubscription
+     * @property {DHDevice~notificationReceivedCb} cb - a callback that will be invoked when a command is received
      */
 
     /**
-     * @callback notificationReceivedCb
-     * @param {ReceivedCommand} command - Received command information
+     * @callback DHDevice~notificationReceivedCb
+     * @param {DHDevice~ReceivedCommand} command - Received command information
      */
 
     /**
-     * @typedef {Object} ReceivedCommand
-     * @property {updateCommandFunction} update - function for updating the current command with the result
+     * @typedef {Object} DHDevice~ReceivedCommand
+     * @property {DHDevice~updateCommandFunction} update - function for updating the current command with the result
      */
 
     /**
-     * @typedef {function} updateCommandFunction
+     * @typedef {function} DHDevice~updateCommandFunction
      * @param {Object} result - command result
      * @param {function} cb - The callback that handles the response
      * @throws {Error} - throws an error if status is not specified
      */
 
     /**
-     * @callback getDeviceCb
-     * @param {DHError} err - An error object if any errors occurred
+     * @callback DHDevice~getDeviceCb
+     * @param {module:Core~module:Core~DHError} err - An error object if any errors occurred
      * @param {Object} device - Current device information
      */
 
@@ -2593,9 +2635,11 @@ var DHDevice = (function () {
      * Use subscription object to bind to a 'new command received' event
      * use command.update to specify command result parameters
      *
-     * @param {notificationSubscribeCb} cb - The callback that handles the response
-     * @param {NotificationSubscribeParameters} params - Subscription parameters
-     * @returns {NotificationSubscription} - Added subscription object
+     * @memberof DHDevice
+     * @override
+     * @param {DHDevice~notificationSubscribeCb} cb - The callback that handles the response
+     * @param {DHDevice~NotificationSubscribeParameters} params - Subscription parameters
+     * @returns {DHDevice~NotificationSubscription} - Added subscription object
      */
     DHDevice.prototype.subscribe = function (cb, params) {
         params = params || {};
@@ -2609,7 +2653,7 @@ var DHDevice = (function () {
         // overwrite _handleMessage to add additional functionality to command object
         sub._handleMessage = function (deviceId, cmd) {
             self._populateCmd(cmd);
-            sub._handleMessageOld(cmd)
+            sub._handleMessageOld(cmd);
         };
 
         return sub;
@@ -2645,13 +2689,15 @@ var DHDevice = (function () {
 
     /**
      * DHDevice channel states
-     * @borrows DeviceHive#channelStates
+     * @memberof DHDevice
+     * @borrows module:Core~DeviceHive.channelStates
      */
     DHDevice.channelStates = DHDevice.prototype.channelStates;
 
     /**
      * DHDevice subscription states
-     * @borrows Subscription#states
+     * @memberof DHDevice
+     * @borrows module:Core~Subscription.states
      */
     DHDevice.subscriptionStates = Subscription.states;
 

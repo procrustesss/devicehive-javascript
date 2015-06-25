@@ -1,12 +1,15 @@
 var fs = require('fs'),
+    karma = require('karma').server,
     gulp = require('gulp'),
     umd = require('gulp-umd'),
     concat = require('gulp-concat'),
     util = require('gulp-util'),
+    clean = require('gulp-clean'),
     uglify = require('gulp-uglify'),
     rename = require("gulp-rename"),
     mocha = require('gulp-mocha'),
-    doc = require("gulp-jsdoc-to-markdown");
+    doc = require("gulp-jsdoc-to-markdown"),
+    istanbul = require('gulp-istanbul');
 
 var config = {
     "browser": {
@@ -90,6 +93,21 @@ var config = {
     }
 };
 
+var test = {
+    "browser": {
+        "sources": config.browser.client.files.concat(config.browser.device.files),
+        "tests": [
+            "./test/**/*.js"
+        ]
+    },
+    "node": {
+        "sources": config.node["*"].files,
+        "tests": [
+            "./test/**/*.js"
+        ]
+    }
+}
+
 function build(config, platform, lib) {
     var fileName = lib === '*' ? 'devicehive.js' : 'devicehive.' + lib + '.js';
 
@@ -109,11 +127,11 @@ function build(config, platform, lib) {
 }
 
 function resolvePlatformTaskName(platform) {
-    return 'build.' + platform;
+    return 'build:' + platform;
 }
 
 function resolveLibTaskName(platform, lib) {
-    return resolvePlatformTaskName(platform) + '.' + lib;
+    return resolvePlatformTaskName(platform) + ':' + lib.replace('.', ':');
 }
 
 
@@ -152,12 +170,12 @@ for (var platform in config) {
 
 // create main build task which depends on all platform tasks
 gulp.task('build', platformTaskNames);
-gulp.task('test', function () {
-    return gulp.src('./test/*.js', {read: false})
-        .pipe(mocha());
-});
 
-gulp.task('compress', ['build.browser'], function () {
+gulp.task('clean:build', function() {
+    return gulp.src(['./build/'], {read: false}).pipe(clean({force: true}));
+})
+
+gulp.task('compress', ['build:browser'], function () {
     return gulp.src('./build/browser/**/*[!.min].js')
         .pipe(uglify())
         .pipe(rename({
@@ -165,8 +183,6 @@ gulp.task('compress', ['build.browser'], function () {
         }))
         .pipe(gulp.dest('./build/browser'));
 });
-
-gulp.task('default', ['build', 'test', 'docs', 'compress']);
 
 gulp.task('docs', function() {
     return gulp.src('src/**/*.js')
@@ -178,6 +194,61 @@ gulp.task('docs', function() {
         .pipe(gulp.dest("."));
 });
 
-gulp.task('watch', function () {
-    gulp.watch('./src/**', ['default']);
+gulp.task('test:browser', function (done) {
+    karma.start({
+        frameworks: ['mocha', 'chai', 'sinon'],
+        files: test.browser.sources.concat(test.browser.tests),
+        exclude: ['./test/common.node.js'],
+        reporters: ['mocha', 'coverage'],
+        preprocessors: {
+            './src/**/*.js': ['coverage']
+        },
+        coverageReporter: {
+            subdir: './browser/',
+            reporters: [
+                { type: 'lcovonly' },
+                { type: 'text' },
+                { type: 'text-summary' }
+            ]
+        },
+        port: 9876,
+        colors: true,
+        browsers: ['PhantomJS'],
+        singleRun: true
+    }, done);
 });
+
+gulp.task('test:node', function (done) {
+    gulp.src(test.node.sources)
+        .pipe(istanbul())
+        .pipe(concat('src.js'))
+        .pipe(gulp.dest('./tmp/'))
+        .on('finish', function () {
+            gulp.src(['./tmp/src.js'].concat(test.node.tests))
+                .pipe(concat('test.js'))
+                .pipe(gulp.dest('./tmp/'))
+                .on('finish', function () {
+                    gulp.src(['./tmp/test.js'], { read: false })
+                        .pipe(mocha())
+                        .pipe(istanbul.writeReports({
+                            reporters: [ 'lcovonly', 'text', 'text-summary' ],
+                            dir: './coverage/node',
+                        }))
+                        .on('end', done);
+                });
+        });
+});
+
+gulp.task('clean:test', function() {
+    return gulp.src(['./tmp/', './coverage/'], {read: false}).pipe(clean({force: true}));
+})
+
+gulp.task('default', ['build', 'compress', 'docs']);
+
+gulp.task('test', ['test:node', 'test:browser'])
+
+gulp.task('watch', function () {
+    gulp.watch('./src/**', ['default', 'test']);
+});
+
+gulp.task('clean', ['clean:test', 'clean:build'])

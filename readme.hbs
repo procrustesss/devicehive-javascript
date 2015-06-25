@@ -55,7 +55,7 @@ The library supports the following actions:
 * Firefox
 * IE 10, 11
 
-`Node.js` support will be added in future, but still you can leverage [DeviceHive] on `node` by workarounding transport related specifics. 
+`Node.js` support will be added in future, but still you can leverage [DeviceHive] on `node` by workarounding transport related specifics.
 For example you can install a library which implements XMLHttpRequest and use only `longpolling` channel.
 
 #Installation:
@@ -68,7 +68,7 @@ Install package with bower:
 $ bower install devicehive
 ```
 
-or download package files from [`build\browser`](build/browser) folder. 
+or download package files from [`build\browser`](build/browser) folder.
 
 After that you should add references to your HTML file.
 
@@ -112,7 +112,7 @@ also you can register devices and update data in the cloud
 
 ```js
 // Use DHDevice library to register your device in the cloud.
-// It will be registered with an id specified during DHDevice instance creation 
+// It will be registered with an id specified during DHDevice instance creation
 dhDevice.registerDevice({
     name: "My Device",
     // device key which can be used for device authentication.
@@ -135,7 +135,7 @@ You can check [Core Implementation](src/core/devicehive.js), [DHClient Implement
 ##Channels
 
 The framework also implements a facility to continuously receive device notifications, send notification, receive client commands and send client commands.
-These features utilizes WebSocket or HTTP long-polling mechanisms supported by [DeviceHive]. In order to provide that functionality, the library uses a concept of channels to transmit messages between the server and client. 
+These features utilizes WebSocket or HTTP long-polling mechanisms supported by [DeviceHive]. In order to provide that functionality, the library uses a concept of channels to transmit messages between the server and client.
 Clients and devices should simply open a channel, subscribe to messages and then handle them in the corresponding callback methods.
 
 To open the channel
@@ -159,7 +159,7 @@ var eventSubscription = dhClient.channelStateChanged(function(state){
 eventSubscription.unbind();
 ```
 
-After the channel is opened your clients will be able to interact with the devices in a real-time fashion. 
+After the channel is opened your clients will be able to interact with the devices in a real-time fashion.
 
 Take a look at this example for the **Client** library:
 
@@ -263,6 +263,10 @@ dhDevice.closeChannel();
 
 Please run `gulp test` before committing to ensure your changes don't affect existing features.
 Editor preferences are available in the editor config for easy use in common text editors. Read more and download plugins at http://editorconfig.org.
+
+The project uses [Karma](http://karma-runner.github.io/0.12/index.html) and [Mocha](http://mochajs.org/) to run tests on node.js and the browsers.
+
+**If a new module is added and you want it to be available in the test modules please add it to the files configuration in the [gulpfile.js](/gulpfile.js)**
 
 ##TODO
 

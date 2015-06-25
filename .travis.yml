@@ -8,9 +8,17 @@ cache:
   directories:
     - node_modules
 
-after_success: "npm run build"
+addons:
+  code_climate:
+    repo_token:
+      secure: "jc8V0vAOHQJo1NY3l/uYJXOZ7FXvGPfphmAxi6B9cvjRIa/xehwkAaexEf2y41p9Reo70M9bq+/NPBpkpSoUJcMrXE8H57qeejKiWXaXQy1PClarOsqUwIYLRlvtF1rnrM1mSNhrdRmlZfJJeVJj5+K5uMj6uKa8fz4pmxyfMmQ="
+
+after_success:
+    - codeclimate < ./coverage/browser/lcov.info
+    - codeclimate < ./coverage/node/lcov.info
 
 before_deploy:
+  - "npm run build"
   - "zip devicehive.browser.client.zip build/browser/devicehive.client.js build/browser/devicehive.client.min.js"
   - "zip devicehive.browser.client.jquery.zip build/browser/devicehive.client.jquery.js build/browser/devicehive.client.jquery.min.js"
   - "zip devicehive.browser.device.zip build/browser/devicehive.device.js build/browser/devicehive.device.min.js"
@@ -22,5 +30,4 @@ deploy:
     secure: ar/JXybBxhGNNqjf8VTv2aVCod7u9m2D1GCG6yvbIXAYcdr8efeIWA2jYpLL5wZ/AU6d679ZtzlcpVdu88bm0uILMCJ+4oYPCEGVtbzjAYBEBqvqxyLlZwuG3fqYGofbhoE3p3ShNkDZDZNOYbUoVzB5sXNh8B680dcF+SYwqjo=
   file: "*.zip"
   on:
-    all_branches: true
     tags: true
